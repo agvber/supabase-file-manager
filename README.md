@@ -58,3 +58,13 @@ npm run preview
 
 - Supabase URL/anon key는 브라우저 localStorage에 저장됩니다. 공용 PC에서는 사용 후 설정 페이지의 "지우기"를 눌러 지워주세요.
 - 모든 권한은 RLS로 제어되므로 anon key만으로는 권한 없는 접근이 차단됩니다.
+
+## 배포 (GitHub Pages)
+
+이 레포는 `main` 브랜치에 push하면 GitHub Actions가 자동으로 빌드 후 GitHub Pages에 배포합니다.
+
+- 배포 URL: `https://<user>.github.io/apk-uploader/`
+- 베이스 경로: `/apk-uploader/` (Vite `base` + React Router `basename` 자동 매칭)
+- SPA 라우팅: 빌드 시 `dist/index.html`을 `dist/404.html`로 복사해 GitHub Pages가 deep-link도 SPA로 처리하도록 함
+- 워크플로: `.github/workflows/deploy.yml`
+- 사이트 헤더(CSP/HSTS 등): GitHub Pages는 사용자 정의 헤더를 지원하지 않습니다. 보안 강화가 필요하면 Cloudflare Pages/Vercel/Netlify로 이전하세요.
