@@ -47,14 +47,21 @@ function normalizeConfig(cfg: SupabaseConfig): SupabaseConfig {
 
 export async function validateSupabaseConnection(cfg: SupabaseConfig): Promise<SupabaseConfig> {
   const normalized = normalizeConfig(cfg);
-  const endpoint = `${normalized.url}/auth/v1/settings`;
+  // Probe /auth/v1/token instead of /auth/v1/settings: the latter is sometimes
+  // gated by an upstream HTTP Basic Auth (Kong), but token issuance is gated
+  // only by apikey on standard Supabase deploys. Empty body → GoTrue returns
+  // a 400 with a Supabase-shaped JSON error, confirming URL + anon key reach
+  // the auth service.
+  const endpoint = `${normalized.url}/auth/v1/token?grant_type=password`;
   let res: Response;
   try {
     res = await fetch(endpoint, {
+      method: 'POST',
       headers: {
         apikey: normalized.anonKey,
-        Authorization: `Bearer ${normalized.anonKey}`,
+        'Content-Type': 'application/json',
       },
+      body: '{}',
       signal: AbortSignal.timeout(8000),
     });
   } catch (err: unknown) {
@@ -64,22 +71,29 @@ export async function validateSupabaseConnection(cfg: SupabaseConfig): Promise<S
     );
   }
   if (res.status === 401) {
+    const wwwAuth = res.headers.get('www-authenticate') ?? '';
+    if (/^basic/i.test(wwwAuth)) {
+      throw new Error(
+        '게이트웨이(HTTP Basic Auth)가 인증 엔드포인트를 차단하고 있습니다. 운영자에게 /auth/v1/* 경로의 Basic Auth 해제를 요청하세요.',
+      );
+    }
     throw new Error('anon key가 잘못되었거나 권한이 없습니다.');
   }
   if (res.status === 404) {
     throw new Error('해당 URL은 Supabase 인증 엔드포인트를 제공하지 않습니다.');
   }
-  if (!res.ok) {
-    throw new Error(`Supabase 응답 오류 (HTTP ${res.status}). URL을 확인하세요.`);
+  if (res.status >= 500) {
+    throw new Error(`Supabase 서버 오류 (HTTP ${res.status}). 잠시 후 다시 시도하세요.`);
   }
-  let body: unknown;
+  // 400/422: GoTrue가 누락 필드(이메일/비번 없음)를 알려옴 — URL + apikey 정상 신호
+  let body: unknown = null;
   try {
     body = await res.json();
   } catch {
-    throw new Error('Supabase 응답이 JSON 형식이 아닙니다. URL이 올바른지 확인하세요.');
+    /* JSON 아님 */
   }
   if (typeof body !== 'object' || body === null) {
-    throw new Error('Supabase 인증 서비스로 보이지 않습니다.');
+    throw new Error('Supabase 응답이 인증 서비스 형식이 아닙니다. URL이 올바른지 확인하세요.');
   }
   return normalized;
 }
