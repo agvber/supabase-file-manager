@@ -29,7 +29,7 @@ export function getConfig(): SupabaseConfig | null {
 
 function normalizeConfig(cfg: SupabaseConfig): SupabaseConfig {
   const url = cfg.url.trim();
-  const anonKey = cfg.anonKey.trim();
+  const anonKey = cfg.anonKey.replace(/[\s\u200B\u200C\u200D\uFEFF]+/g, '');
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -39,8 +39,8 @@ function normalizeConfig(cfg: SupabaseConfig): SupabaseConfig {
   if (parsed.protocol !== 'https:') {
     throw new Error('Supabase URL은 https://로 시작해야 합니다.');
   }
-  if (!/^eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(anonKey)) {
-    throw new Error('anon key 형식이 올바르지 않습니다. (Supabase 프로젝트의 anon public key를 그대로 붙여넣으세요)');
+  if (!anonKey) {
+    throw new Error('anon key가 비어있습니다.');
   }
   return { url: parsed.origin, anonKey };
 }
