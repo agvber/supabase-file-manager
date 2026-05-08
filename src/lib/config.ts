@@ -39,7 +39,12 @@ export function saveConfig(cfg: SupabaseConfig): void {
   if (parsed.protocol !== 'https:') {
     throw new Error('Supabase URL은 https://로 시작해야 합니다.');
   }
-  if (!/^[a-z0-9-]+\.supabase\.co$/.test(parsed.host)) {
+  const SUPABASE_HOST_SUFFIX = '.supabase.co';
+  if (!parsed.host.endsWith(SUPABASE_HOST_SUFFIX)) {
+    throw new Error('Supabase URL은 https://<project-id>.supabase.co 형식이어야 합니다.');
+  }
+  const projectId = parsed.host.slice(0, -SUPABASE_HOST_SUFFIX.length);
+  if (!projectId || projectId.includes('.')) {
     throw new Error('Supabase URL은 https://<project-id>.supabase.co 형식이어야 합니다.');
   }
   if (!/^eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(anonKey)) {
