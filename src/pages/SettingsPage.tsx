@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getConfig, saveConfig, clearConfig } from '../lib/config';
+import { getConfig, saveConfig, clearConfig, validateSupabaseConnection } from '../lib/config';
 import { useAuth } from '../hooks/useAuth';
 
 export function SettingsPage() {
@@ -11,6 +11,7 @@ export function SettingsPage() {
   const [anonKey, setAnonKey] = useState(existing?.anonKey ?? '');
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validating, setValidating] = useState(false);
 
   // Re-read config when it changes externally
   useEffect(() => {
@@ -19,16 +20,20 @@ export function SettingsPage() {
     setAnonKey(cfg?.anonKey ?? '');
   }, []);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSaved(false);
+    setValidating(true);
     try {
-      saveConfig({ url, anonKey });
+      const normalized = await validateSupabaseConnection({ url, anonKey });
+      saveConfig(normalized);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setValidating(false);
     }
   };
 
@@ -86,8 +91,10 @@ export function SettingsPage() {
           {saved && <div className="form-success">저장되었습니다.</div>}
 
           <div className="settings-actions">
-            <button type="submit" className="btn btn-primary">저장</button>
-            <button type="button" className="btn btn-danger" onClick={handleClear}>
+            <button type="submit" className="btn btn-primary" disabled={validating}>
+              {validating ? '검증 중...' : '저장'}
+            </button>
+            <button type="button" className="btn btn-danger" onClick={handleClear} disabled={validating}>
               지우기
             </button>
           </div>
