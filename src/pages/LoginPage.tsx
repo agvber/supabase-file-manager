@@ -70,15 +70,18 @@ export function LoginPage() {
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
-            <label htmlFor="email">이메일</label>
+            <label htmlFor="email">아이디</label>
             <input
               id="email"
-              type="email"
+              type="text"
               className="text-input"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              autoComplete="email"
+              autoComplete="username"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
               disabled={submitting}
             />
           </div>
