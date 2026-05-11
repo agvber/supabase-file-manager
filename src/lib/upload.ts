@@ -11,6 +11,40 @@ export type UploadParams = {
   onProgress?: (loaded: number, total: number) => void;
 };
 
+// Supabase 자체 호스팅 storage 서비스가 X-Forwarded-Proto/Host를 못 받으면
+// Location 헤더에 내부 URL(http://host:8000/upload/resumable/...)을 돌려준다.
+// HTTPS 페이지에서는 mixed-content로 차단되므로, 응답 시점에 Location 헤더를
+// 공개 URL로 rewrite하는 전역 XHR 패치를 설치한다.
+function ensureLocationRewrite(publicOrigin: string): void {
+  if (xhrPatchInstalled) return;
+  xhrPatchInstalled = true;
+  const origGetHeader = XMLHttpRequest.prototype.getResponseHeader;
+  XMLHttpRequest.prototype.getResponseHeader = function (name: string): string | null {
+    const value = origGetHeader.call(this, name);
+    if (typeof value !== 'string') return value;
+    if (name.toLowerCase() !== 'location') return value;
+    return rewriteIfNeeded(value, publicOrigin);
+  };
+}
+let xhrPatchInstalled = false;
+
+function rewriteIfNeeded(rawUrl: string, publicOrigin: string): string {
+  try {
+    const target = new URL(rawUrl);
+    const expected = new URL(publicOrigin);
+    if (target.hostname !== expected.hostname) return rawUrl;
+    // 같은 호스트인데 protocol/port가 다르거나 /storage/v1 prefix가 빠진 경우 보정
+    target.protocol = expected.protocol;
+    target.port = expected.port;
+    if (!target.pathname.startsWith('/storage/v1/')) {
+      target.pathname = '/storage/v1' + target.pathname;
+    }
+    return target.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
 export function uploadResumable(params: UploadParams): {
   promise: Promise<void>;
   abort: () => void;
@@ -26,7 +60,9 @@ export function uploadResumable(params: UploadParams): {
     onProgress,
   } = params;
 
-  const endpoint = supabaseUrl.replace(/\/$/, '') + '/storage/v1/upload/resumable';
+  const cleanedUrl = supabaseUrl.replace(/\/$/, '');
+  const endpoint = cleanedUrl + '/storage/v1/upload/resumable';
+  ensureLocationRewrite(cleanedUrl);
 
   const headers: Record<string, string> = {
     authorization: `Bearer ${accessToken}`,
