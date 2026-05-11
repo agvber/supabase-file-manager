@@ -1,26 +1,22 @@
-import type { ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
-import { getConfig } from '../lib/config';
-import { useAuth } from '../hooks/useAuth';
+import { getConfig, subscribeConfig } from '../lib/config';
 
 type Props = {
   children: ReactNode;
 };
 
 export function ProtectedRoute({ children }: Props) {
-  const config = getConfig();
-  const { session, loading } = useAuth();
+  const [, setTick] = useState(0);
 
+  useEffect(() => {
+    const unsub = subscribeConfig(() => setTick((n) => n + 1));
+    return unsub;
+  }, []);
+
+  const config = getConfig();
   if (!config) {
     return <Navigate to="/settings" replace />;
-  }
-
-  if (loading) {
-    return <div className="loading">로딩 중...</div>;
-  }
-
-  if (!session) {
-    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;

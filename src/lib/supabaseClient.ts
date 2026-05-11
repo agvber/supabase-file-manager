@@ -11,14 +11,19 @@ export function getSupabase(): SupabaseClient | null {
     cachedKey = null;
     return null;
   }
-  const key = config.url + '|' + config.anonKey;
+  const key = config.url + '|' + config.apiKey + '|' + config.authKey;
   if (cachedClient && cachedKey === key) {
     return cachedClient;
   }
-  cachedClient = createClient(config.url, config.anonKey, {
+  cachedClient = createClient(config.url, config.apiKey, {
     auth: {
-      persistSession: true,
-      autoRefreshToken: true,
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${config.authKey}`,
+      },
     },
   });
   cachedKey = key;

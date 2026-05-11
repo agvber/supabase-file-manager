@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Track } from '../lib/tracks';
-import { getSupabase } from '../lib/supabaseClient';
 import { getConfig } from '../lib/config';
 import { uploadResumable } from '../lib/upload';
 
@@ -65,20 +64,7 @@ export function UploadPanel({ track, onUploaded }: Props) {
 
     const config = getConfig();
     if (!config) {
-      setError('Supabase 설정이 필요합니다.');
-      return;
-    }
-
-    const supabase = getSupabase();
-    if (!supabase) {
-      setError('Supabase 클라이언트를 초기화할 수 없습니다.');
-      return;
-    }
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
-    if (!token) {
-      setError('세션이 만료되었습니다. 다시 로그인하세요.');
+      setError('설정이 필요합니다.');
       return;
     }
 
@@ -87,7 +73,7 @@ export function UploadPanel({ track, onUploaded }: Props) {
 
     const { promise, abort } = uploadResumable({
       supabaseUrl: config.url,
-      accessToken: token,
+      accessToken: config.authKey,
       bucket: 'tablet-apk',
       objectPath: `${track}/${trimmed}`,
       file,

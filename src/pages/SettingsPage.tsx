@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getConfig, saveConfig, clearConfig, validateSupabaseConnection } from '../lib/config';
-import { useAuth } from '../hooks/useAuth';
 
 export function SettingsPage() {
-  const { session } = useAuth();
+  const navigate = useNavigate();
   const existing = getConfig();
 
   const [url, setUrl] = useState(existing?.url ?? '');
-  const [anonKey, setAnonKey] = useState(existing?.anonKey ?? '');
+  const [apiKey, setApiKey] = useState(existing?.apiKey ?? '');
+  const [authKey, setAuthKey] = useState(existing?.authKey ?? '');
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
@@ -17,7 +17,8 @@ export function SettingsPage() {
   useEffect(() => {
     const cfg = getConfig();
     setUrl(cfg?.url ?? '');
-    setAnonKey(cfg?.anonKey ?? '');
+    setApiKey(cfg?.apiKey ?? '');
+    setAuthKey(cfg?.authKey ?? '');
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -26,10 +27,12 @@ export function SettingsPage() {
     setSaved(false);
     setValidating(true);
     try {
-      const normalized = await validateSupabaseConnection({ url, anonKey });
+      const normalized = await validateSupabaseConnection({ url, apiKey, authKey });
       saveConfig(normalized);
       setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      setTimeout(() => {
+        navigate('/');
+      }, 800);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -41,25 +44,29 @@ export function SettingsPage() {
     if (!window.confirm('저장된 Supabase 설정을 지울까요?')) return;
     clearConfig();
     setUrl('');
-    setAnonKey('');
+    setApiKey('');
+    setAuthKey('');
     setError(null);
     setSaved(false);
   };
-
-  const backLink = session ? '/' : '/login';
-  const backLabel = session ? '대시보드로' : '로그인으로';
 
   return (
     <div className="auth-page">
       <div className="auth-card card settings-card">
         <div className="settings-header">
           <h1 className="auth-title">Supabase 설정</h1>
-          <Link to={backLink} className="back-link">{backLabel}</Link>
+          <Link to="/" className="back-link">대시보드로</Link>
         </div>
 
         <p className="settings-hint">
-          Supabase 프로젝트 → Settings → API 에서 URL과 anon public key를 복사하세요.
+          Supabase 프로젝트의 anon public key를 API key 칸에 붙여넣으세요.
+          <br />
+          Auth key는 RLS를 통과할 수 있는 Bearer 토큰이어야 합니다. (Supabase service_role key 또는 적절한 사용자 JWT)
         </p>
+
+        <div className="warning-banner">
+          ⚠ Auth key가 service_role이면 DB 전체 권한입니다. 외부 노출 금지.
+        </div>
 
         <form onSubmit={handleSave} className="auth-form">
           <div className="form-group">
@@ -75,12 +82,24 @@ export function SettingsPage() {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="anon-key">Supabase anon key</label>
+            <label htmlFor="api-key">API key (anon)</label>
             <textarea
-              id="anon-key"
+              id="api-key"
               className="text-input textarea-mono"
-              value={anonKey}
-              onChange={(e) => setAnonKey(e.target.value)}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="eyJ..."
+              rows={4}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="auth-key">Auth key (Bearer JWT)</label>
+            <textarea
+              id="auth-key"
+              className="text-input textarea-mono"
+              value={authKey}
+              onChange={(e) => setAuthKey(e.target.value)}
               placeholder="eyJ..."
               rows={4}
               required

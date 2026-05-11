@@ -8,7 +8,9 @@ Supabase Storage(`tablet-apk` 버킷)에 태블릿 앱 APK를 트랙별(producti
 
 - Node.js 18+
 - Supabase 프로젝트
-- `tablet-apk` 버킷이 생성되어 있고, RLS는 `gyms.auth = auth.uid()`인 인증 사용자에게 SELECT/INSERT/UPDATE/DELETE 허용
+- `tablet-apk` 버킷이 생성되어 있고, 운영자가 다음 두 가지를 보유:
+  - **API key**: anon public key (Supabase Studio → Settings → API)
+  - **Auth key**: RLS를 통과할 수 있는 Bearer JWT (예: `service_role` key 또는 적절한 사용자 JWT)
 
 ---
 
@@ -26,9 +28,12 @@ npm run preview
 ## 처음 사용 흐름
 
 1. 브라우저에서 앱 열기 → `/settings`로 자동 리다이렉트
-2. Supabase URL과 anon public key를 입력하고 저장 (Supabase 프로젝트 → Settings → API)
-3. `/login`에서 gym 계정(이메일/비밀번호)으로 로그인
-4. 대시보드에서 트랙 선택 → APK 업로드/다운로드/삭제
+2. 세 가지 입력 후 "저장":
+   - **Supabase URL** — 예: `https://service.lightweight.run`
+   - **API key (anon)** — Studio → Settings → API → `anon` `public` key
+   - **Auth key (Bearer JWT)** — `service_role` key 또는 RLS를 통과할 수 있는 사용자 JWT
+3. 저장 시 `POST /storage/v1/object/list/tablet-apk`로 smoke test → 통과하면 대시보드(`/`)로 이동
+4. 대시보드에서 트랙 선택 → APK 업로드/다운로드/삭제 (별도 로그인 없음 — 입력한 두 key를 모든 요청에 헤더로 부착)
 
 ---
 
@@ -54,10 +59,12 @@ npm run preview
 
 ---
 
-## 보안
+## 보안 ⚠
 
-- Supabase URL/anon key는 브라우저 localStorage에 저장됩니다. 공용 PC에서는 사용 후 설정 페이지의 "지우기"를 눌러 지워주세요.
-- 모든 권한은 RLS로 제어되므로 anon key만으로는 권한 없는 접근이 차단됩니다.
+- **Auth key가 `service_role`이면 DB 전체 권한입니다. 외부 노출 절대 금지.** 의심 시 Studio → Settings → API에서 즉시 rotate.
+- 키들은 브라우저 localStorage에 저장됩니다. 공용 PC에서는 사용 후 설정 페이지의 "지우기"를 눌러 지워주세요.
+- 우리 앱은 로그인 UI를 두지 않습니다. 운영자가 외부에서 발급받은 Bearer 토큰을 입력하는 것이 곧 인증입니다.
+- 만약 anon key + 더 좁은 권한으로 운영하고 싶다면 `tablet-apk` 버킷의 RLS를 `TO anon, authenticated USING (true)` 형태로 완화하고 Auth key 칸에도 anon key를 그대로 입력하세요.
 
 ## 배포 (GitHub Pages)
 

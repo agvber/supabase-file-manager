@@ -226,6 +226,18 @@ input, textarea {
   color: #6b7280;
 }
 
+/* ===== Warning Banner ===== */
+.warning-banner {
+  padding: 10px 14px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  color: #dc2626;
+  font-size: 13px;
+  margin-bottom: 16px;
+  font-weight: 500;
+}
+
 /* ===== Settings Page ===== */
 .settings-card {
   max-width: 520px;

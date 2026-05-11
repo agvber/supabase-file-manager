@@ -3,7 +3,8 @@ const CONFIG_CHANGE_EVENT = 'supabase-config-change';
 
 export type SupabaseConfig = {
   url: string;
-  anonKey: string;
+  apiKey: string;   // anon — used as `apikey` header
+  authKey: string;  // Bearer JWT (service_role or user JWT)
 };
 
 export function getConfig(): SupabaseConfig | null {
@@ -15,12 +16,15 @@ export function getConfig(): SupabaseConfig | null {
       typeof parsed === 'object' &&
       parsed !== null &&
       'url' in parsed &&
-      'anonKey' in parsed &&
+      'apiKey' in parsed &&
+      'authKey' in parsed &&
       typeof (parsed as Record<string, unknown>).url === 'string' &&
-      typeof (parsed as Record<string, unknown>).anonKey === 'string'
+      typeof (parsed as Record<string, unknown>).apiKey === 'string' &&
+      typeof (parsed as Record<string, unknown>).authKey === 'string'
     ) {
       return parsed as SupabaseConfig;
     }
+    // Backward-compat: old data had `anonKey` instead of `apiKey`/`authKey` — treat as missing
     return null;
   } catch {
     return null;
@@ -29,7 +33,8 @@ export function getConfig(): SupabaseConfig | null {
 
 function normalizeConfig(cfg: SupabaseConfig): SupabaseConfig {
   const url = cfg.url.trim();
-  const anonKey = cfg.anonKey.replace(/[\s\u200B\u200C\u200D\uFEFF]+/g, '');
+  const apiKey = cfg.apiKey.replace(/[\s​‌‍﻿]+/g, '');
+  const authKey = cfg.authKey.replace(/[\s​‌‍﻿]+/g, '');
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -39,29 +44,28 @@ function normalizeConfig(cfg: SupabaseConfig): SupabaseConfig {
   if (parsed.protocol !== 'https:') {
     throw new Error('Supabase URL은 https://로 시작해야 합니다.');
   }
-  if (!anonKey) {
-    throw new Error('anon key가 비어있습니다.');
+  if (!apiKey) {
+    throw new Error('API key가 비어있습니다.');
   }
-  return { url: parsed.origin, anonKey };
+  if (!authKey) {
+    throw new Error('Auth key가 비어있습니다.');
+  }
+  return { url: parsed.origin, apiKey, authKey };
 }
 
 export async function validateSupabaseConnection(cfg: SupabaseConfig): Promise<SupabaseConfig> {
   const normalized = normalizeConfig(cfg);
-  // Probe /auth/v1/token instead of /auth/v1/settings: the latter is sometimes
-  // gated by an upstream HTTP Basic Auth (Kong), but token issuance is gated
-  // only by apikey on standard Supabase deploys. Empty body → GoTrue returns
-  // a 400 with a Supabase-shaped JSON error, confirming URL + anon key reach
-  // the auth service.
-  const endpoint = `${normalized.url}/auth/v1/token?grant_type=password`;
+  const endpoint = `${normalized.url}/storage/v1/object/list/tablet-apk`;
   let res: Response;
   try {
     res = await fetch(endpoint, {
       method: 'POST',
       headers: {
-        apikey: normalized.anonKey,
+        apikey: normalized.apiKey,
+        Authorization: `Bearer ${normalized.authKey}`,
         'Content-Type': 'application/json',
       },
-      body: '{}',
+      body: '{"limit":1,"prefix":""}',
       signal: AbortSignal.timeout(8000),
     });
   } catch (err: unknown) {
@@ -70,30 +74,56 @@ export async function validateSupabaseConnection(cfg: SupabaseConfig): Promise<S
       `Supabase 서버에 연결할 수 없습니다. URL과 네트워크/CORS 설정을 확인하세요. (${reason})`,
     );
   }
-  if (res.status === 401) {
-    const wwwAuth = res.headers.get('www-authenticate') ?? '';
-    if (/^basic/i.test(wwwAuth)) {
-      throw new Error(
-        '게이트웨이(HTTP Basic Auth)가 인증 엔드포인트를 차단하고 있습니다. 운영자에게 /auth/v1/* 경로의 Basic Auth 해제를 요청하세요.',
-      );
+
+  if (res.status === 200 || res.status === 206) {
+    let body: unknown = null;
+    try {
+      body = await res.json();
+    } catch {
+      throw new Error('Supabase 응답이 예상과 다릅니다. URL을 확인하세요.');
     }
-    throw new Error('anon key가 잘못되었거나 권한이 없습니다.');
+    if (!Array.isArray(body)) {
+      throw new Error('Supabase 응답이 예상과 다릅니다. URL을 확인하세요.');
+    }
+    return normalized;
+  }
+
+  if (res.status === 400) {
+    // Request shape mismatch but URL+auth OK — treat as pass if response has Supabase error shape
+    let body: unknown = null;
+    try {
+      body = await res.json();
+    } catch {
+      throw new Error('Supabase 응답이 예상과 다릅니다. URL을 확인하세요.');
+    }
+    if (typeof body !== 'object' || body === null) {
+      throw new Error('Supabase 응답이 예상과 다릅니다. URL을 확인하세요.');
+    }
+    return normalized;
+  }
+
+  if (res.status === 401) {
+    throw new Error('API key 또는 Auth key가 잘못되었습니다.');
+  }
+  if (res.status === 403) {
+    throw new Error('권한이 없습니다. RLS 정책 또는 Auth key의 role을 확인하세요.');
   }
   if (res.status === 404) {
-    throw new Error('해당 URL은 Supabase 인증 엔드포인트를 제공하지 않습니다.');
+    throw new Error('버킷 `tablet-apk`를 찾을 수 없습니다. URL을 확인하세요.');
   }
   if (res.status >= 500) {
     throw new Error(`Supabase 서버 오류 (HTTP ${res.status}). 잠시 후 다시 시도하세요.`);
   }
-  // 400/422: GoTrue가 누락 필드(이메일/비번 없음)를 알려옴 — URL + apikey 정상 신호
+
+  // Any other status
   let body: unknown = null;
   try {
     body = await res.json();
   } catch {
-    /* JSON 아님 */
+    /* ignore */
   }
   if (typeof body !== 'object' || body === null) {
-    throw new Error('Supabase 응답이 인증 서비스 형식이 아닙니다. URL이 올바른지 확인하세요.');
+    throw new Error('Supabase 응답이 예상과 다릅니다. URL을 확인하세요.');
   }
   return normalized;
 }
