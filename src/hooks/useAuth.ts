@@ -61,11 +61,21 @@ export function useAuth(): AuthState {
     };
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (identifier: string, password: string) => {
     const supabase = getSupabase();
     if (!supabase) throw new Error('Supabase 설정이 필요합니다.');
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(error.message);
+    const trimmed = identifier.trim();
+    const looksLikeEmail = trimmed.includes('@');
+    // Try the most likely method first; if "Invalid login credentials", retry as the other.
+    const first = looksLikeEmail
+      ? await supabase.auth.signInWithPassword({ email: trimmed, password })
+      : await supabase.auth.signInWithPassword({ phone: trimmed, password });
+    if (!first.error) return;
+    if (!/invalid/i.test(first.error.message)) throw new Error(first.error.message);
+    const second = looksLikeEmail
+      ? await supabase.auth.signInWithPassword({ phone: trimmed, password })
+      : await supabase.auth.signInWithPassword({ email: trimmed, password });
+    if (second.error) throw new Error(second.error.message);
   };
 
   const signOut = async () => {
