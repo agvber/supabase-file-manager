@@ -588,3 +588,175 @@ input, textarea {
   background: #f3f4f6;
   color: #6b7280;
 }
+
+/* ===== File Manager ===== */
+
+/* Breadcrumb */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 13px;
+  margin-bottom: 12px;
+  color: #6b7280;
+}
+
+.breadcrumb-link {
+  color: #2563eb;
+  text-decoration: none;
+}
+.breadcrumb-link:hover {
+  text-decoration: underline;
+}
+
+.breadcrumb-sep {
+  color: #9ca3af;
+  margin: 0 2px;
+}
+
+.breadcrumb-current {
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.breadcrumb-segment {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* FM Toolbar */
+.fm-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+/* Folder rows */
+.folder-row {
+  cursor: pointer;
+}
+.folder-row:hover td {
+  background: #eff6ff;
+}
+
+/* Modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-card {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  padding: 28px 32px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 16px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+/* Dropzone */
+.dropzone-wrapper {
+  margin-bottom: 16px;
+}
+
+.dropzone {
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: #6b7280;
+  font-size: 13px;
+  transition: border-color 0.15s, background 0.15s;
+  background: #fff;
+}
+.dropzone:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+.dropzone.drag-over {
+  border-style: solid;
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.dropzone-hint {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+/* Upload status list */
+.upload-status-list {
+  margin-top: 8px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.upload-overall {
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 2px;
+}
+
+.upload-status-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 8px;
+  background: #f9fafb;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+}
+
+.upload-status-name {
+  color: #374151;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 70%;
+}
+
+.upload-status-pct {
+  color: #2563eb;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.upload-status-done {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.upload-status-error {
+  color: #dc2626;
+  font-size: 11px;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
