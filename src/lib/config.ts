@@ -55,76 +55,28 @@ function normalizeConfig(cfg: SupabaseConfig): SupabaseConfig {
 
 export async function validateSupabaseConnection(cfg: SupabaseConfig): Promise<SupabaseConfig> {
   const normalized = normalizeConfig(cfg);
-  const endpoint = `${normalized.url}/storage/v1/object/list/tablet-apk`;
+  const endpoint = `${normalized.url}/storage/v1/bucket`;
   let res: Response;
   try {
     res = await fetch(endpoint, {
-      method: 'POST',
+      method: 'GET',
       headers: {
         apikey: normalized.apiKey,
         Authorization: `Bearer ${normalized.authKey}`,
-        'Content-Type': 'application/json',
       },
-      body: '{"limit":1,"prefix":""}',
       signal: AbortSignal.timeout(8000),
     });
   } catch (err: unknown) {
     const reason = err instanceof Error ? err.message : String(err);
-    throw new Error(
-      `Supabase 서버에 연결할 수 없습니다. URL과 네트워크/CORS 설정을 확인하세요. (${reason})`,
-    );
+    throw new Error(`Supabase 서버에 연결할 수 없습니다. URL과 네트워크/CORS 설정을 확인하세요. (${reason})`);
   }
-
-  if (res.status === 200 || res.status === 206) {
-    let body: unknown = null;
-    try {
-      body = await res.json();
-    } catch {
-      throw new Error('Supabase 응답이 예상과 다릅니다. URL을 확인하세요.');
-    }
-    if (!Array.isArray(body)) {
-      throw new Error('Supabase 응답이 예상과 다릅니다. URL을 확인하세요.');
-    }
-    return normalized;
-  }
-
-  if (res.status === 400) {
-    // Request shape mismatch but URL+auth OK — treat as pass if response has Supabase error shape
-    let body: unknown = null;
-    try {
-      body = await res.json();
-    } catch {
-      throw new Error('Supabase 응답이 예상과 다릅니다. URL을 확인하세요.');
-    }
-    if (typeof body !== 'object' || body === null) {
-      throw new Error('Supabase 응답이 예상과 다릅니다. URL을 확인하세요.');
-    }
-    return normalized;
-  }
-
-  if (res.status === 401) {
-    throw new Error('API key 또는 Auth key가 잘못되었습니다.');
-  }
-  if (res.status === 403) {
-    throw new Error('권한이 없습니다. RLS 정책 또는 Auth key의 role을 확인하세요.');
-  }
-  if (res.status === 404) {
-    throw new Error('버킷 `tablet-apk`를 찾을 수 없습니다. URL을 확인하세요.');
-  }
-  if (res.status >= 500) {
-    throw new Error(`Supabase 서버 오류 (HTTP ${res.status}). 잠시 후 다시 시도하세요.`);
-  }
-
-  // Any other status
+  if (res.status === 401) throw new Error('API key 또는 Auth key가 잘못되었습니다.');
+  if (res.status === 403) throw new Error('권한이 없습니다. service_role key를 사용해보세요.');
+  if (res.status >= 500) throw new Error(`Supabase 서버 오류 (HTTP ${res.status}).`);
+  if (!res.ok) throw new Error(`Supabase 응답 오류 (HTTP ${res.status}). URL을 확인하세요.`);
   let body: unknown = null;
-  try {
-    body = await res.json();
-  } catch {
-    /* ignore */
-  }
-  if (typeof body !== 'object' || body === null) {
-    throw new Error('Supabase 응답이 예상과 다릅니다. URL을 확인하세요.');
-  }
+  try { body = await res.json(); } catch { /* ignore */ }
+  if (!Array.isArray(body)) throw new Error('Supabase 응답이 예상과 다릅니다. URL을 확인하세요.');
   return normalized;
 }
 
