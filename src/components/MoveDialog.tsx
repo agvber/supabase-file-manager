@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { X, Folder } from 'lucide-react';
 import { getSupabase } from '../lib/supabaseClient';
 import { listAllFolders, type FolderNode } from '../lib/storage';
 
@@ -36,7 +37,10 @@ function renderNodes(
         style={{ paddingLeft: depth * 16 + 8 }}
         onClick={() => onSelect(node.path)}
       >
-        📁 {node.name}
+        <div className="folder-tree-node-label">
+          <Folder size={13} strokeWidth={1.75} style={{ flexShrink: 0, color: 'var(--text-secondary)' }} />
+          {node.name}
+        </div>
         {node.children.length > 0 &&
           renderNodes(node.children, depth + 1, excludePaths, selected, onSelect)}
       </div>
@@ -98,31 +102,48 @@ export function MoveDialog({ open, bucket, excludePaths, mode, onClose, onConfir
   return (
     <div className="modal-backdrop" onClick={handleBackdropClick}>
       <div className="modal-card" style={{ maxWidth: 480 }}>
-        <h2 className="modal-title">{title}</h2>
-        {error && <div className="form-error">{error}</div>}
-        {loading ? (
-          <div style={{ padding: '16px 0', color: '#6b7280', fontSize: 13 }}>
-            폴더 목록 불러오는 중…
-          </div>
-        ) : (
-          <div className="folder-tree">
-            {tree && (
-              <>
-                {/* Root node */}
-                {!isDescendantOrSelf('', excludePaths) && (
-                  <div
-                    className={`folder-tree-node${selected === '' ? ' selected' : ''}`}
-                    style={{ paddingLeft: 8 }}
-                    onClick={() => setSelected('')}
-                  >
-                    📁 {tree.name}
-                  </div>
-                )}
-                {renderNodes(tree.children, 1, excludePaths, selected, setSelected)}
-              </>
-            )}
-          </div>
-        )}
+        <div className="modal-header">
+          <h2 className="modal-title">{title}</h2>
+          <button
+            className="btn-icon"
+            onClick={onClose}
+            disabled={confirming}
+            aria-label="닫기"
+          >
+            <X size={15} />
+          </button>
+        </div>
+
+        <div className="modal-body" style={{ paddingBottom: 0 }}>
+          {error && <div className="form-error">{error}</div>}
+          {loading ? (
+            <div style={{ padding: '12px 0', color: 'var(--text-secondary)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="spinner" />
+              폴더 목록 불러오는 중…
+            </div>
+          ) : (
+            <div className="folder-tree">
+              {tree && (
+                <>
+                  {!isDescendantOrSelf('', excludePaths) && (
+                    <div
+                      className={`folder-tree-node${selected === '' ? ' selected' : ''}`}
+                      style={{ paddingLeft: 8 }}
+                      onClick={() => setSelected('')}
+                    >
+                      <div className="folder-tree-node-label">
+                        <Folder size={13} strokeWidth={1.75} style={{ flexShrink: 0, color: 'var(--text-secondary)' }} />
+                        {tree.name}
+                      </div>
+                    </div>
+                  )}
+                  {renderNodes(tree.children, 1, excludePaths, selected, setSelected)}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="modal-actions">
           <button
             type="button"

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { X } from 'lucide-react';
 import { getSupabase } from '../lib/supabaseClient';
 import { createFolder } from '../lib/storage';
 
@@ -54,36 +55,34 @@ export function NewFolderDialog({ open, bucket, path, onClose, onCreated }: Prop
   return (
     <div className="modal-backdrop" onClick={handleBackdropClick}>
       <div className="modal-card">
-        <h2 className="modal-title">새 폴더 만들기</h2>
+        <div className="modal-header">
+          <h2 className="modal-title">새 폴더 만들기</h2>
+          <button className="btn-icon" onClick={onClose} aria-label="닫기">
+            <X size={15} />
+          </button>
+        </div>
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="new-folder-name">폴더 이름</label>
-            <input
-              id="new-folder-name"
-              className="text-input"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus
-              disabled={saving}
-              placeholder="예: 2024-photos"
-            />
+          <div className="modal-body">
+            <div className="form-group">
+              <label htmlFor="new-folder-name">폴더 이름</label>
+              <input
+                id="new-folder-name"
+                className="text-input"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoFocus
+                disabled={saving}
+                placeholder="예: 2024-photos"
+              />
+            </div>
+            {error && <div className="form-error">{error}</div>}
           </div>
-          {error && <div className="form-error">{error}</div>}
           <div className="modal-actions">
-            <button
-              type="button"
-              className="btn"
-              onClick={onClose}
-              disabled={saving}
-            >
+            <button type="button" className="btn" onClick={onClose} disabled={saving}>
               취소
             </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={saving}
-            >
+            <button type="submit" className="btn btn-primary" disabled={saving}>
               {saving ? '저장 중…' : '저장'}
             </button>
           </div>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Upload } from 'lucide-react';
 import { uploadResumable } from '../lib/upload';
 import { getConfig } from '../lib/config';
 import { joinPath } from '../lib/storage';
@@ -13,20 +14,25 @@ type Props = {
 
 type FileStatus = {
   name: string;
-  progress: number; // 0-100
+  progress: number;
   done: boolean;
   error: string | null;
 };
 
 const CONCURRENCY = 4;
 
-export function UploadDropzone({ bucket, path, onUploaded, externalFiles, onExternalFilesConsumed }: Props) {
+export function UploadDropzone({
+  bucket,
+  path,
+  onUploaded,
+  externalFiles,
+  onExternalFilesConsumed,
+}: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [statuses, setStatuses] = useState<FileStatus[]>([]);
   const [uploading, setUploading] = useState(false);
 
-  // Handle files dropped anywhere on the fm-main area
   useEffect(() => {
     if (externalFiles && externalFiles.length > 0) {
       void uploadFiles(externalFiles);
@@ -57,7 +63,6 @@ export function UploadDropzone({ bucket, path, onUploaded, externalFiles, onExte
     setStatuses(initial);
     setUploading(true);
 
-    // Process in chunks of CONCURRENCY
     for (let i = 0; i < files.length; i += CONCURRENCY) {
       const chunk = files.slice(i, i + CONCURRENCY);
       await Promise.all(
@@ -98,7 +103,6 @@ export function UploadDropzone({ bucket, path, onUploaded, externalFiles, onExte
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files.length > 0) {
       void uploadFiles(e.target.files);
-      // reset so same file can be re-selected
       e.target.value = '';
     }
   }
@@ -136,6 +140,7 @@ export function UploadDropzone({ bucket, path, onUploaded, externalFiles, onExte
         onKeyDown={(e) => e.key === 'Enter' && handleClick()}
         aria-label="파일 업로드 영역"
       >
+        <Upload size={18} className="dropzone-icon" strokeWidth={1.75} />
         <span>파일을 드래그하거나 클릭해 업로드</span>
         <span className="dropzone-hint">같은 이름은 덮어쓰기됩니다.</span>
       </div>

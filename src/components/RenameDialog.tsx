@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { X } from 'lucide-react';
 import { getSupabase } from '../lib/supabaseClient';
 import { renameItem, renameFolder, joinPath, type StorageEntry } from '../lib/storage';
 
 type Props = {
   open: boolean;
   bucket: string;
-  currentPath: string; // full path of the item being renamed
+  currentPath: string;
   entry: StorageEntry;
   onClose: () => void;
   onRenamed: () => void;
@@ -72,36 +73,34 @@ export function RenameDialog({ open, bucket, currentPath, entry, onClose, onRena
   return (
     <div className="modal-backdrop" onClick={handleBackdropClick}>
       <div className="modal-card">
-        <h2 className="modal-title">이름 바꾸기</h2>
+        <div className="modal-header">
+          <h2 className="modal-title">이름 바꾸기</h2>
+          <button className="btn-icon" onClick={onClose} disabled={saving} aria-label="닫기">
+            <X size={15} />
+          </button>
+        </div>
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="rename-input">새 이름</label>
-            <input
-              id="rename-input"
-              className="text-input"
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              autoFocus
-              disabled={saving}
-            />
+          <div className="modal-body">
+            <div className="form-group">
+              <label htmlFor="rename-input">새 이름</label>
+              <input
+                id="rename-input"
+                className="text-input"
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                autoFocus
+                disabled={saving}
+              />
+            </div>
+            {error && <div className="form-error">{error}</div>}
+            {progress && <div className="form-success">{progress}</div>}
           </div>
-          {error && <div className="form-error">{error}</div>}
-          {progress && <div className="form-success">{progress}</div>}
           <div className="modal-actions">
-            <button
-              type="button"
-              className="btn"
-              onClick={onClose}
-              disabled={saving}
-            >
+            <button type="button" className="btn" onClick={onClose} disabled={saving}>
               취소
             </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={saving}
-            >
+            <button type="submit" className="btn btn-primary" disabled={saving}>
               {saving ? '저장 중…' : '저장'}
             </button>
           </div>

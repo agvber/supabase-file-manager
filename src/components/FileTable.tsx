@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Folder, File, Image, FileText, Download, Pencil, Trash2 } from 'lucide-react';
 import type { StorageEntry } from '../lib/storage';
 
 type Props = {
@@ -35,6 +36,20 @@ function formatDate(iso: string | null): string {
   }
 }
 
+function FileEntryIcon({ entry }: { entry: StorageEntry }) {
+  if (entry.isFolder) {
+    return <Folder size={15} className="file-name-icon file-name-icon--folder" strokeWidth={1.75} />;
+  }
+  const mime = entry.mimetype ?? '';
+  if (mime.startsWith('image/')) {
+    return <Image size={15} className="file-name-icon" strokeWidth={1.75} />;
+  }
+  if (mime.startsWith('text/') || mime.includes('json') || mime.includes('xml')) {
+    return <FileText size={15} className="file-name-icon" strokeWidth={1.75} />;
+  }
+  return <File size={15} className="file-name-icon" strokeWidth={1.75} />;
+}
+
 export function FileTable({
   folders,
   files,
@@ -52,15 +67,15 @@ export function FileTable({
   const [dropTarget, setDropTarget] = useState<string | null>(null);
 
   function handleDragStart(e: React.DragEvent<HTMLTableRowElement>, entry: StorageEntry) {
-    // Build list of sources: if dragged entry is selected, drag all selected; else just this one
     const sources: string[] = isSelected(entry.name)
-      ? [...Array.from(
-          // Collect all selected names from both folders and files
-          new Set([
-            ...folders.filter((f) => isSelected(f.name)).map((f) => f.name),
-            ...files.filter((f) => isSelected(f.name)).map((f) => f.name),
-          ])
-        )]
+      ? [
+          ...Array.from(
+            new Set([
+              ...folders.filter((f) => isSelected(f.name)).map((f) => f.name),
+              ...files.filter((f) => isSelected(f.name)).map((f) => f.name),
+            ]),
+          ),
+        ]
       : [entry.name];
     e.dataTransfer.setData('application/x-fm-item', JSON.stringify({ items: sources }));
     e.dataTransfer.effectAllowed = 'move';
@@ -74,20 +89,21 @@ export function FileTable({
   }
 
   function handleFolderDragLeave(e: React.DragEvent<HTMLTableRowElement>) {
-    // Only clear if leaving to outside the row
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
       setDropTarget(null);
     }
   }
 
-  async function handleFolderDrop(e: React.DragEvent<HTMLTableRowElement>, folderEntry: StorageEntry) {
+  async function handleFolderDrop(
+    e: React.DragEvent<HTMLTableRowElement>,
+    folderEntry: StorageEntry,
+  ) {
     e.preventDefault();
     setDropTarget(null);
     const raw = e.dataTransfer.getData('application/x-fm-item');
     if (!raw || !onDropOnFolder) return;
     try {
       const { items }: { items: string[] } = JSON.parse(raw) as { items: string[] };
-      // Filter out self-move (can't drop folder onto itself)
       const filtered = items.filter((name) => name !== folderEntry.name);
       if (filtered.length === 0) return;
       await onDropOnFolder(filtered, folderEntry.name);
@@ -102,7 +118,10 @@ export function FileTable({
     return (
       <div className="file-list">
         <div className="file-list-empty">
-          이 폴더가 비어있습니다. 파일을 업로드하거나 폴더를 만들어보세요.
+          <Folder size={32} className="file-list-empty-icon" strokeWidth={1.25} />
+          <span className="file-list-empty-text">
+            이 폴더가 비어있습니다. 파일을 업로드하거나 폴더를 만들어보세요.
+          </span>
         </div>
       </div>
     );
@@ -113,7 +132,7 @@ export function FileTable({
       <table className="file-table">
         <thead>
           <tr>
-            <th style={{ width: 36 }}>
+            <th>
               <input
                 type="checkbox"
                 checked={allSelected}
@@ -125,19 +144,19 @@ export function FileTable({
               />
             </th>
             <th>이름</th>
-            <th>크기</th>
-            <th>수정일</th>
-            <th>작업</th>
+            <th style={{ width: 100 }}>크기</th>
+            <th style={{ width: 180 }}>수정일</th>
+            <th style={{ width: 120 }}></th>
           </tr>
         </thead>
         <tbody>
           {folders.map((entry) => {
-            const sel = isSelected(entry.name);
+            const selected = isSelected(entry.name);
             const isDropTarget = dropTarget === entry.name;
             return (
               <tr
                 key={entry.name}
-                className={`folder-row${sel ? ' row-selected' : ''}${isDropTarget ? ' drop-target' : ''}`}
+                className={`folder-row${selected ? ' row-selected' : ''}${isDropTarget ? ' drop-target' : ''}`}
                 onClick={() => onFolderClick(entry.name)}
                 title={entry.name}
                 draggable
@@ -149,27 +168,39 @@ export function FileTable({
                 <td onClick={(e) => e.stopPropagation()}>
                   <input
                     type="checkbox"
-                    checked={sel}
+                    checked={selected}
                     onChange={() => onToggleSelect(entry.name)}
                     aria-label={`${entry.name} 선택`}
                   />
                 </td>
-                <td>📁 {entry.name}</td>
-                <td>—</td>
-                <td>{formatDate(entry.lastModified)}</td>
                 <td>
-                  <div className="file-actions" onClick={(e) => e.stopPropagation()}>
+                  <div className="file-name-cell">
+                    <FileEntryIcon entry={entry} />
+                    <span className="file-name-text">{entry.name}</span>
+                  </div>
+                </td>
+                <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</td>
+                <td style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                  {formatDate(entry.lastModified)}
+                </td>
+                <td>
+                  <div className="row-actions" onClick={(e) => e.stopPropagation()}>
                     <button
-                      className="btn btn-sm"
+                      className="btn-icon"
                       onClick={() => onRename(entry)}
+                      title="이름 바꾸기"
+                      aria-label="이름 바꾸기"
                     >
-                      이름 바꾸기
+                      <Pencil size={13} />
                     </button>
                     <button
-                      className="btn btn-sm btn-danger"
+                      className="btn-icon"
                       onClick={() => onDelete(entry)}
+                      title="삭제"
+                      aria-label="삭제"
+                      style={{ color: 'var(--danger)' }}
                     >
-                      삭제
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 </td>
@@ -177,11 +208,11 @@ export function FileTable({
             );
           })}
           {files.map((entry) => {
-            const sel = isSelected(entry.name);
+            const selected = isSelected(entry.name);
             return (
               <tr
                 key={entry.name}
-                className={sel ? 'row-selected' : undefined}
+                className={selected ? 'row-selected' : undefined}
                 title={entry.name}
                 draggable
                 onDragStart={(e) => handleDragStart(e, entry)}
@@ -189,33 +220,49 @@ export function FileTable({
                 <td>
                   <input
                     type="checkbox"
-                    checked={sel}
+                    checked={selected}
                     onChange={() => onToggleSelect(entry.name)}
                     aria-label={`${entry.name} 선택`}
                   />
                 </td>
-                <td>📄 {entry.name}</td>
-                <td>{formatSize(entry.size)}</td>
-                <td>{formatDate(entry.lastModified)}</td>
                 <td>
-                  <div className="file-actions">
+                  <div className="file-name-cell">
+                    <FileEntryIcon entry={entry} />
+                    <span className="file-name-text">{entry.name}</span>
+                  </div>
+                </td>
+                <td style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                  {formatSize(entry.size)}
+                </td>
+                <td style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                  {formatDate(entry.lastModified)}
+                </td>
+                <td>
+                  <div className="row-actions">
                     <button
-                      className="btn btn-sm"
+                      className="btn-icon"
                       onClick={() => onDownload(entry)}
+                      title="다운로드"
+                      aria-label="다운로드"
                     >
-                      다운로드
+                      <Download size={13} />
                     </button>
                     <button
-                      className="btn btn-sm"
+                      className="btn-icon"
                       onClick={() => onRename(entry)}
+                      title="이름 바꾸기"
+                      aria-label="이름 바꾸기"
                     >
-                      이름 바꾸기
+                      <Pencil size={13} />
                     </button>
                     <button
-                      className="btn btn-sm btn-danger"
+                      className="btn-icon"
                       onClick={() => onDelete(entry)}
+                      title="삭제"
+                      aria-label="삭제"
+                      style={{ color: 'var(--danger)' }}
                     >
-                      삭제
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 </td>

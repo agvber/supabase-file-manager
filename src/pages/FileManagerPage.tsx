@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { FolderPlus, RotateCw } from 'lucide-react';
 
 import { Breadcrumb } from '../components/Breadcrumb';
 import { FileTable } from '../components/FileTable';
@@ -81,19 +82,16 @@ export function FileManagerPage() {
   }
 
   function handleAreaDrop(e: React.DragEvent<HTMLDivElement>) {
-    // Only handle OS file drops (not row drags)
     if (!e.dataTransfer.types.includes('Files')) return;
     e.preventDefault();
     setAreaDragOver(false);
     areaDragCounter.current = 0;
-    // Delegate to dropzone's upload handler via custom event — handled below
     if (e.dataTransfer.files.length > 0) {
       areaDropFilesRef.current = e.dataTransfer.files;
       setAreaDropTick((t) => t + 1);
     }
   }
 
-  // Signal to UploadDropzone to handle files dropped anywhere in the area
   const areaDropFilesRef = useRef<FileList | null>(null);
   const [areaDropTick, setAreaDropTick] = useState(0);
 
@@ -103,7 +101,6 @@ export function FileManagerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bucket, path]);
 
-  // Build a map from entry name -> isFolder for current listing
   function buildEntryMap(): Map<string, boolean> {
     const map = new Map<string, boolean>();
     for (const e of folders) map.set(e.name, true);
@@ -111,7 +108,6 @@ export function FileManagerPage() {
     return map;
   }
 
-  // selected stores entry names; resolve to full paths with isFolder flag
   function resolveSelected(): { path: string; name: string; isFolder: boolean }[] {
     const map = buildEntryMap();
     return Array.from(sel.selected)
@@ -249,7 +245,6 @@ export function FileManagerPage() {
         const to = joinPath(path ? joinPath(path, targetFolderName) : targetFolderName, name);
         return { from, to, isFolder };
       })
-      // Filter self-moves and descendant moves
       .filter((op) => op.from !== op.to && !op.to.startsWith(op.from + '/'));
 
     if (opItems.length === 0) return;
@@ -270,7 +265,6 @@ export function FileManagerPage() {
     }
   }
 
-  // Selection toggle helpers for FileTable
   const allEntryNames = [...folders, ...files].map((e) => e.name);
   const allSelected =
     allEntryNames.length > 0 && allEntryNames.every((n) => sel.isSelected(n));
@@ -284,97 +278,95 @@ export function FileManagerPage() {
     }
   }
 
-  // Exclude paths: selected folder full paths (can't move/copy into themselves)
   const excludePaths = resolveSelected()
     .filter((it) => it.isFolder)
     .map((it) => it.path);
 
-  return (
-    <div className="dashboard">
-      <header className="dashboard-header">
-        <h1 className="dashboard-title">파일 매니저</h1>
-        <div className="dashboard-header-right">
-          <button onClick={() => navigate('/')} className="header-link">
-            버킷 목록
-          </button>
-          <Link to="/settings" className="header-link">
-            설정
-          </Link>
-        </div>
-      </header>
+  // Whether the detail panel should be visible (single or multi-selection)
+  const detailVisible = sel.count > 0;
 
-      <main className="dashboard-main">
+  return (
+    <div className="fm-page">
+      <div className="fm-header">
         <Breadcrumb bucket={bucket ?? ''} path={path} />
 
-        <div className="fm-layout">
-          <div
-            className="fm-main"
-            onDragEnter={handleAreaDragEnter}
-            onDragOver={handleAreaDragOver}
-            onDragLeave={handleAreaDragLeave}
-            onDrop={handleAreaDrop}
+        <div className="fm-toolbar">
+          <button
+            className="btn btn-sm"
+            onClick={() => setNewFolderOpen(true)}
+            title="새 폴더 만들기"
           >
-            <div className="fm-toolbar">
-              <button className="btn btn-sm" onClick={() => setNewFolderOpen(true)}>
-                📁 폴더 만들기
-              </button>
-              <button className="btn btn-sm" onClick={refresh}>
-                새로고침
-              </button>
-            </div>
+            <FolderPlus size={13} />
+            새 폴더
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={refresh} title="새로고침">
+            <RotateCw size={13} />
+            새로고침
+          </button>
+        </div>
+      </div>
 
-            <UploadDropzone
-              bucket={bucket ?? ''}
-              path={path}
-              onUploaded={refresh}
-              externalFiles={areaDropTick > 0 ? areaDropFilesRef.current : null}
-              onExternalFilesConsumed={() => {
-                areaDropFilesRef.current = null;
-                setAreaDropTick(0);
-              }}
-            />
+      <div
+        className="fm-content"
+        onDragEnter={handleAreaDragEnter}
+        onDragOver={handleAreaDragOver}
+        onDragLeave={handleAreaDragLeave}
+        onDrop={handleAreaDrop}
+      >
+        <UploadDropzone
+          bucket={bucket ?? ''}
+          path={path}
+          onUploaded={refresh}
+          externalFiles={areaDropTick > 0 ? areaDropFilesRef.current : null}
+          onExternalFilesConsumed={() => {
+            areaDropFilesRef.current = null;
+            setAreaDropTick(0);
+          }}
+        />
 
-            {error && <div className="form-error">{error}</div>}
+        {error && <div className="form-error">{error}</div>}
 
-            {loading ? (
-              <div className="file-list-status">
-                <span className="spinner" style={{ marginRight: 8 }} />
-                불러오는 중…
-              </div>
-            ) : (
-              <FileTable
-                bucket={bucket ?? ''}
-                path={path}
-                folders={folders}
-                files={files}
-                onFolderClick={(name) =>
-                  navigate(`/b/${bucket}/${joinPath(path, name)}`)
-                }
-                onRename={(entry) => setRenameTarget(entry)}
-                onDelete={handleDelete}
-                onDownload={handleDownload}
-                isSelected={sel.isSelected}
-                onToggleSelect={sel.toggle}
-                onToggleAll={handleToggleAll}
-                allSelected={allSelected}
-                someSelected={someSelected}
-                onDropOnFolder={handleDropOnFolder}
-              />
-            )}
-
-            {areaDragOver && (
-              <div className="fm-overlay">여기에 드롭하여 업로드</div>
-            )}
+        {loading ? (
+          <div className="file-list-status">
+            <span className="spinner" />
+            불러오는 중…
           </div>
-
-          <DetailPanel
+        ) : (
+          <FileTable
             bucket={bucket ?? ''}
             path={path}
-            entries={[...folders, ...files]}
-            selected={sel.selected}
+            folders={folders}
+            files={files}
+            onFolderClick={(name) =>
+              navigate(`/b/${bucket}/${joinPath(path, name)}`)
+            }
+            onRename={(entry) => setRenameTarget(entry)}
+            onDelete={handleDelete}
+            onDownload={handleDownload}
+            isSelected={sel.isSelected}
+            onToggleSelect={sel.toggle}
+            onToggleAll={handleToggleAll}
+            allSelected={allSelected}
+            someSelected={someSelected}
+            onDropOnFolder={handleDropOnFolder}
           />
-        </div>
-      </main>
+        )}
+
+        {areaDragOver && (
+          <div className="fm-overlay">여기에 드롭하여 업로드</div>
+        )}
+      </div>
+
+      {/* Detail panel slides in from right when something is selected */}
+      {detailVisible && (
+        <DetailPanel
+          bucket={bucket ?? ''}
+          path={path}
+          entries={[...folders, ...files]}
+          selected={sel.selected}
+          onClose={sel.clear}
+        />
+      )}
 
       <BulkActionBar
         count={sel.count}

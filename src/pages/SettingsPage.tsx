@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { getConfig, saveConfig, clearConfig, validateSupabaseConnection } from '../lib/config';
 
 export function SettingsPage() {
@@ -17,7 +18,6 @@ export function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
 
-  // Re-read config when it changes externally
   useEffect(() => {
     const cfg = getConfig();
     setUrl(cfg?.url ?? '');
@@ -59,7 +59,10 @@ export function SettingsPage() {
       <div className="auth-card card settings-card">
         <div className="settings-header">
           <h1 className="auth-title">Supabase 설정</h1>
-          <Link to="/" className="back-link">대시보드로</Link>
+          <Link to="/" className="back-link">
+            <ArrowLeft size={13} />
+            돌아가기
+          </Link>
         </div>
 
         <p className="settings-hint">
@@ -117,7 +120,12 @@ export function SettingsPage() {
             <button type="submit" className="btn btn-primary" disabled={validating}>
               {validating ? '검증 중...' : '저장'}
             </button>
-            <button type="button" className="btn btn-danger" onClick={handleClear} disabled={validating}>
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={handleClear}
+              disabled={validating}
+            >
               지우기
             </button>
           </div>
