@@ -1,77 +1,69 @@
-# 태블릿 APK 버전 관리
+# 태블릿 파일 매니저
 
-Supabase Storage(`tablet-apk` 버킷)에 태블릿 앱 APK를 트랙별(production / beta / dev)로 업로드·관리하는 정적 웹.
+Supabase Storage의 모든 버킷을 한 화면에서 탐색·관리하는 정적 웹.
 
----
+## 주요 기능
+
+- 다중 버킷 자동 조회 (`listBuckets`)
+- 폴더 트리 탐색 + breadcrumb
+- 파일/폴더 업로드(다중·드래그앤드롭) · 다운로드 · 이름 바꾸기 · 삭제
+- 폴더 복사·이동 (재귀)
+- 다중 선택 + bulk 삭제/이동/복사
+- 행 드래그로 폴더 간 이동
+- 우측 상세 패널 (MIME·크기·수정시각·공유 URL)
+- 대용량 파일(500MB까지) tus-js-client resumable 업로드
 
 ## 사전 조건
 
 - Node.js 18+
-- Supabase 프로젝트
-- `tablet-apk` 버킷이 생성되어 있고, 운영자가 다음 두 가지를 보유:
-  - **API key**: anon public key (Supabase Studio → Settings → API)
-  - **Auth key**: RLS를 통과할 수 있는 Bearer JWT (예: `service_role` key 또는 적절한 사용자 JWT)
+- Supabase 프로젝트 (self-hosted 또는 cloud)
+- 운영자가 다음을 보유:
+  - **API key**: anon public key (Studio → Settings → API)
+  - **Auth key**: RLS를 통과할 Bearer JWT (보통 `service_role` key)
 
----
-
-## 설치 및 실행
+## 설치
 
 ```bash
 npm install
-npm run dev        # 개발 서버 — http://localhost:5173
+npm run dev       # http://localhost:5173
 npm run build
 npm run preview
 ```
 
----
+## 처음 사용
 
-## 처음 사용 흐름
+1. 앱 첫 진입 시 자동으로 `/settings`로 이동
+2. URL + API key + Auth key 입력 → 저장 시 `GET /storage/v1/bucket` smoke test
+3. 통과하면 `/`에서 접근 가능한 버킷 카드 목록이 표시됨
+4. 버킷 카드 클릭 → `/b/{bucket}/`로 진입, 폴더 탐색 시작
 
-1. 브라우저에서 앱 열기 → `/settings`로 자동 리다이렉트
-2. 세 가지 입력 후 "저장":
-   - **Supabase URL** — 예: `https://service.lightweight.run`
-   - **API key (anon)** — Studio → Settings → API → `anon` `public` key
-   - **Auth key (Bearer JWT)** — `service_role` key 또는 RLS를 통과할 수 있는 사용자 JWT
-3. 저장 시 `POST /storage/v1/object/list/tablet-apk`로 smoke test → 통과하면 대시보드(`/`)로 이동
-4. 대시보드에서 트랙 선택 → APK 업로드/다운로드/삭제 (별도 로그인 없음 — 입력한 두 key를 모든 요청에 헤더로 부착)
+## 폴더 모델
 
----
+Supabase Storage의 폴더는 객체 경로의 prefix로 표현되는 가상 개념입니다.
+이 앱은 빈 폴더를 만들기 위해 `.emptyFolderPlaceholder`라는 0바이트 파일을 업로드합니다.
 
-## 트랙 구조
+## 키 단축
 
-모든 APK는 버킷 `tablet-apk` 내 다음 폴더에 저장됨:
-
-| 트랙 | 경로 |
-|------|------|
-| production | `production/` |
-| beta | `beta/` |
-| dev | `dev/` |
-
-같은 이름으로 업로드 시 덮어쓰기됩니다.
-
----
-
-## 대용량 업로드
-
-- `tus-js-client`를 통해 Supabase Storage `/storage/v1/upload/resumable` 엔드포인트로 resumable 업로드합니다.
-- 청크 크기는 6MB로 고정 (Supabase 요구사항).
-- 단일 파일 최대 500MB (서버 글로벌 설정).
-
----
+- 폴더 행 클릭 → 진입
+- 폴더 행 + 체크박스 → 선택만 (진입 안 함)
+- 행 드래그 → 폴더에 드롭하면 이동
+- OS 파일 드래그 → 영역에 드롭하면 업로드
 
 ## 보안 ⚠
 
-- **Auth key가 `service_role`이면 DB 전체 권한입니다. 외부 노출 절대 금지.** 의심 시 Studio → Settings → API에서 즉시 rotate.
-- 키들은 브라우저 localStorage에 저장됩니다. 공용 PC에서는 사용 후 설정 페이지의 "지우기"를 눌러 지워주세요.
-- 우리 앱은 로그인 UI를 두지 않습니다. 운영자가 외부에서 발급받은 Bearer 토큰을 입력하는 것이 곧 인증입니다.
-- 만약 anon key + 더 좁은 권한으로 운영하고 싶다면 `tablet-apk` 버킷의 RLS를 `TO anon, authenticated USING (true)` 형태로 완화하고 Auth key 칸에도 anon key를 그대로 입력하세요.
+- Auth key가 `service_role`이면 DB 전체 권한입니다. 외부 노출 금지.
+- 키는 브라우저 localStorage에만 저장됩니다. 공용 PC에서는 사용 후 설정 페이지의 "지우기"를 누르세요.
 
 ## 배포 (GitHub Pages)
 
-이 레포는 `main` 브랜치에 push하면 GitHub Actions가 자동으로 빌드 후 GitHub Pages에 배포합니다.
+- 라이브: `https://<user>.github.io/apk-uploader/`
+- `main` 브랜치에 push → GitHub Actions가 자동 빌드 + 배포
+- `dist/index.html`을 `dist/404.html`로 복사해 SPA deep-link 지원
+- CSP/HSTS 헤더가 필요하면 Cloudflare Pages/Vercel/Netlify로 이전 권장
 
-- 배포 URL: `https://<user>.github.io/apk-uploader/`
-- 베이스 경로: `/apk-uploader/` (Vite `base` + React Router `basename` 자동 매칭)
-- SPA 라우팅: 빌드 시 `dist/index.html`을 `dist/404.html`로 복사해 GitHub Pages가 deep-link도 SPA로 처리하도록 함
-- 워크플로: `.github/workflows/deploy.yml`
-- 사이트 헤더(CSP/HSTS 등): GitHub Pages는 사용자 정의 헤더를 지원하지 않습니다. 보안 강화가 필요하면 Cloudflare Pages/Vercel/Netlify로 이전하세요.
+## 제약 / 범위 외
+
+- ZIP 일괄 다운로드
+- 이미지/텍스트 미리보기 (속성 패널만)
+- 버킷 만들기/삭제 UI (현재는 Studio에서 직접)
+- 검색/필터, 사용자 정의 정렬

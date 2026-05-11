@@ -779,6 +779,7 @@ input, textarea {
   gap: 10px;
   z-index: 50;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+  flex-wrap: wrap;
 }
 
 .bulk-action-bar .count {
@@ -946,4 +947,54 @@ input, textarea {
   background: #eff6ff;
   color: #1d4ed8;
   font-weight: 600;
+}
+
+/* ===== Spinner ===== */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== FM Toast ===== */
+.fm-toast {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #111827;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 200;
+  animation: toastFadeIn 0.2s ease, toastFadeOut 0.4s ease 2.6s forwards;
+}
+
+@keyframes toastFadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes toastFadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/* ===== Mobile: file table scrolls horizontally ===== */
+@media (max-width: 640px) {
+  .file-list {
+    overflow-x: auto;
+  }
 }

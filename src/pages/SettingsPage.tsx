@@ -6,6 +6,10 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const existing = getConfig();
 
+  useEffect(() => {
+    document.title = '설정 | 파일 매니저';
+  }, []);
+
   const [url, setUrl] = useState(existing?.url ?? '');
   const [apiKey, setApiKey] = useState(existing?.apiKey ?? '');
   const [authKey, setAuthKey] = useState(existing?.authKey ?? '');

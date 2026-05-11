@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+
 import { Breadcrumb } from '../components/Breadcrumb';
 import { FileTable } from '../components/FileTable';
 import { UploadDropzone } from '../components/UploadDropzone';
@@ -40,6 +41,17 @@ export function FileManagerPage() {
   const [moveMode, setMoveMode] = useState<'move' | 'copy'>('move');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    const title = path ? `${bucket}/${path}` : bucket ?? '';
+    document.title = `${title} | 파일 매니저`;
+  }, [bucket, path]);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  }
 
   // Area-wide OS-file drag state
   const [areaDragOver, setAreaDragOver] = useState(false);
@@ -167,6 +179,7 @@ export function FileManagerPage() {
       );
       sel.clear();
       refresh();
+      showToast(`${items.length}개 항목을 삭제했습니다.`);
     } catch (err) {
       alert(err instanceof Error ? err.message : String(err));
     } finally {
@@ -203,10 +216,12 @@ export function FileManagerPage() {
         await moveMany(client, bucket ?? '', opItems, (done, total) =>
           setProgress({ done, total }),
         );
+        showToast(`${items.length}개 항목을 이동했습니다.`);
       } else {
         await copyMany(client, bucket ?? '', opItems, (done, total) =>
           setProgress({ done, total }),
         );
+        showToast(`${items.length}개 항목을 복사했습니다.`);
       }
       sel.clear();
       refresh();
@@ -322,7 +337,10 @@ export function FileManagerPage() {
             {error && <div className="form-error">{error}</div>}
 
             {loading ? (
-              <div className="file-list-status">불러오는 중…</div>
+              <div className="file-list-status">
+                <span className="spinner" style={{ marginRight: 8 }} />
+                불러오는 중…
+              </div>
             ) : (
               <FileTable
                 bucket={bucket ?? ''}
@@ -398,6 +416,8 @@ export function FileManagerPage() {
         onClose={() => setMoveDialogOpen(false)}
         onConfirm={handleMoveConfirm}
       />
+
+      {toast && <div className="fm-toast">{toast}</div>}
     </div>
   );
 }
