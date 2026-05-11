@@ -195,18 +195,30 @@ export function UploadDropzone({
               업로드 중: {doneCount}/{totalCount}
             </div>
           )}
-          {statuses.map((s) => (
-            <div key={s.name} className="upload-status-item">
-              <span className="upload-status-name">{s.name}</span>
-              {s.error ? (
-                <span className="upload-status-error">{s.error}</span>
-              ) : s.done ? (
-                <span className="upload-status-done">완료</span>
-              ) : (
-                <span className="upload-status-pct">{s.progress}%</span>
-              )}
-            </div>
-          ))}
+          {statuses.map((s) => {
+            const state = s.error ? 'error' : s.done ? 'done' : 'uploading';
+            const barPct = s.done ? 100 : s.progress;
+            return (
+              <div key={s.name} className={`upload-status-item state-${state}`}>
+                <div className="upload-status-row">
+                  <span className="upload-status-name">{s.name}</span>
+                  {s.error ? (
+                    <span className="upload-status-error">{s.error}</span>
+                  ) : s.done ? (
+                    <span className="upload-status-done">완료</span>
+                  ) : (
+                    <span className="upload-status-pct">{s.progress}%</span>
+                  )}
+                </div>
+                <div className="upload-status-bar" aria-hidden>
+                  <div
+                    className="upload-status-bar-fill"
+                    style={{ width: `${barPct}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

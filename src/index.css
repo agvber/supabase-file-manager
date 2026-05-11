@@ -780,12 +780,19 @@ input[type="checkbox"] {
 
 .upload-status-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 5px 10px;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px 10px 8px;
   background: var(--bg);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-light);
+}
+
+.upload-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
 }
 
 .upload-status-name {
@@ -793,13 +800,17 @@ input[type="checkbox"] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 70%;
+  flex: 1;
+  min-width: 0;
 }
 
 .upload-status-pct {
   color: var(--accent-hover);
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  min-width: 38px;
+  text-align: right;
 }
 
 .upload-status-done {
@@ -810,10 +821,34 @@ input[type="checkbox"] {
 .upload-status-error {
   color: var(--danger);
   font-size: 11px;
-  max-width: 40%;
+  max-width: 50%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.upload-status-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--border-light);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.upload-status-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.2s ease-out;
+  width: 0;
+}
+
+.upload-status-item.state-done .upload-status-bar-fill {
+  background: #16a34a;
+}
+
+.upload-status-item.state-error .upload-status-bar-fill {
+  background: var(--danger);
 }
 
 /* ===== Modal ===== */
