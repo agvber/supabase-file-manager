@@ -52,6 +52,9 @@ export function UploadDropzone({
   const [dragOver, setDragOver] = useState(false);
   const [statuses, setStatuses] = useState<FileStatus[]>([]);
   const [uploading, setUploading] = useState(false);
+  // 진행률 throttle 상태 (re-render 사이 유지)
+  const lastPctRef = useRef<Map<string, number>>(new Map());
+  const lastEmitAtRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
     if (externalFiles && externalFiles.length > 0) {
@@ -65,6 +68,18 @@ export function UploadDropzone({
     setStatuses((prev) =>
       prev.map((s) => (s.name === name ? { ...s, ...patch } : s)),
     );
+  }
+
+  // 같은 % 스킵 + 150ms 이내 연속 호출 스킵 (단, 100%는 항상 통과)
+  function reportProgress(name: string, pct: number) {
+    const prevPct = lastPctRef.current.get(name) ?? -1;
+    if (pct === prevPct) return;
+    const now = Date.now();
+    const prevAt = lastEmitAtRef.current.get(name) ?? 0;
+    if (pct < 100 && now - prevAt < 150) return;
+    lastPctRef.current.set(name, pct);
+    lastEmitAtRef.current.set(name, now);
+    updateStatus(name, { progress: pct });
   }
 
   async function uploadFiles(fileList: FileList | File[]) {
@@ -82,6 +97,8 @@ export function UploadDropzone({
     }));
     setStatuses(initial);
     setUploading(true);
+    lastPctRef.current.clear();
+    lastEmitAtRef.current.clear();
 
     for (let i = 0; i < files.length; i += CONCURRENCY) {
       const chunk = files.slice(i, i + CONCURRENCY);
@@ -98,7 +115,7 @@ export function UploadDropzone({
             upsert: true,
             onProgress(loaded, total) {
               const pct = total > 0 ? Math.round((loaded / total) * 100) : 0;
-              updateStatus(file.name, { progress: pct });
+              reportProgress(file.name, pct);
             },
           });
           return promise
