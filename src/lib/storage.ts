@@ -176,6 +176,164 @@ export async function renameFolder(
   }
 }
 
+export async function copyItem(
+  client: SupabaseClient,
+  bucket: string,
+  fromPath: string,
+  toPath: string,
+): Promise<void> {
+  const { error } = await client.storage.from(bucket).copy(fromPath, toPath);
+  if (error) throw new Error(error.message);
+}
+
+export async function copyFolder(
+  client: SupabaseClient,
+  bucket: string,
+  fromPath: string,
+  toPath: string,
+  onProgress?: (done: number, total: number) => void,
+): Promise<void> {
+  const all = await collectAllObjects(client, bucket, fromPath);
+  let done = 0;
+  for (const old of all) {
+    const newPath = old.replace(
+      new RegExp(`^${escapeRegExp(fromPath)}(/|$)`),
+      toPath + '$1',
+    );
+    const { error } = await client.storage.from(bucket).copy(old, newPath);
+    if (error) throw new Error(error.message);
+    done++;
+    onProgress?.(done, all.length);
+  }
+}
+
+export async function moveMany(
+  client: SupabaseClient,
+  bucket: string,
+  items: { from: string; to: string; isFolder: boolean }[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<void> {
+  let totalOps = 0;
+  for (const it of items) {
+    if (it.isFolder) {
+      const all = await collectAllObjects(client, bucket, it.from);
+      totalOps += all.length;
+    } else {
+      totalOps += 1;
+    }
+  }
+  let done = 0;
+  for (const it of items) {
+    if (it.isFolder) {
+      await renameFolder(client, bucket, it.from, it.to);
+      const sub = await collectAllObjects(client, bucket, it.to);
+      done += sub.length;
+    } else {
+      await renameItem(client, bucket, it.from, it.to);
+      done += 1;
+    }
+    onProgress?.(done, totalOps);
+  }
+}
+
+export async function copyMany(
+  client: SupabaseClient,
+  bucket: string,
+  items: { from: string; to: string; isFolder: boolean }[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<void> {
+  let totalOps = 0;
+  for (const it of items) {
+    if (it.isFolder) {
+      const all = await collectAllObjects(client, bucket, it.from);
+      totalOps += all.length;
+    } else {
+      totalOps += 1;
+    }
+  }
+  let done = 0;
+  for (const it of items) {
+    if (it.isFolder) {
+      await copyFolder(client, bucket, it.from, it.to);
+      const sub = await collectAllObjects(client, bucket, it.to);
+      done += sub.length;
+    } else {
+      await copyItem(client, bucket, it.from, it.to);
+      done += 1;
+    }
+    onProgress?.(done, totalOps);
+  }
+}
+
+export async function removeMany(
+  client: SupabaseClient,
+  bucket: string,
+  items: { path: string; isFolder: boolean }[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<void> {
+  const allPaths: string[] = [];
+  for (const it of items) {
+    if (it.isFolder) {
+      const sub = await collectAllObjects(client, bucket, it.path);
+      const phPath = joinPath(it.path, FOLDER_PLACEHOLDER);
+      if (!sub.includes(phPath)) sub.push(phPath);
+      allPaths.push(...sub);
+    } else {
+      allPaths.push(it.path);
+    }
+  }
+  if (allPaths.length === 0) return;
+  const batchSize = 100;
+  let done = 0;
+  for (let i = 0; i < allPaths.length; i += batchSize) {
+    const batch = allPaths.slice(i, i + batchSize);
+    const { error } = await client.storage.from(bucket).remove(batch);
+    if (error) throw new Error(error.message);
+    done += batch.length;
+    onProgress?.(done, allPaths.length);
+  }
+}
+
+export type FolderNode = {
+  path: string;
+  name: string;
+  children: FolderNode[];
+};
+
+export async function listAllFolders(
+  client: SupabaseClient,
+  bucket: string,
+): Promise<FolderNode> {
+  const root: FolderNode = { path: '', name: '(루트)', children: [] };
+  await walkFolders(client, bucket, '', root);
+  return root;
+}
+
+async function walkFolders(
+  client: SupabaseClient,
+  bucket: string,
+  prefix: string,
+  parent: FolderNode,
+): Promise<void> {
+  const { data, error } = await client.storage
+    .from(bucket)
+    .list(prefix, { limit: 1000, sortBy: { column: 'name', order: 'asc' } });
+  if (error) throw new Error(error.message);
+  for (const entry of data ?? []) {
+    if (entry.name === FOLDER_PLACEHOLDER) continue;
+    const isFolder = entry.metadata == null || entry.id == null;
+    if (isFolder) {
+      const child: FolderNode = {
+        path: joinPath(prefix, entry.name),
+        name: entry.name,
+        children: [],
+      };
+      parent.children.push(child);
+      await walkFolders(client, bucket, child.path, child);
+    }
+  }
+}
+
 export async function createSignedDownloadUrl(
   client: SupabaseClient,
   bucket: string,

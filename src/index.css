@@ -760,3 +760,66 @@ input, textarea {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ===== Multi-select ===== */
+.row-selected td {
+  background: #eff6ff !important;
+}
+
+.bulk-action-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-top: 1px solid #e5e7eb;
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 50;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.bulk-action-bar .count {
+  font-weight: 700;
+  color: #2563eb;
+  font-size: 14px;
+  margin-right: 4px;
+}
+
+/* ===== Folder Tree (MoveDialog) ===== */
+.folder-tree {
+  max-height: 360px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  margin-bottom: 4px;
+}
+
+.folder-tree-node {
+  display: flex;
+  flex-direction: column;
+  padding-top: 7px;
+  padding-bottom: 7px;
+  padding-right: 12px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background 0.1s;
+}
+
+.folder-tree-node:last-child {
+  border-bottom: none;
+}
+
+.folder-tree-node:hover {
+  background: #f9fafb;
+}
+
+.folder-tree-node.selected {
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 600;
+}

@@ -9,6 +9,11 @@ type Props = {
   onRename: (entry: StorageEntry) => void;
   onDelete: (entry: StorageEntry) => void;
   onDownload: (entry: StorageEntry) => void;
+  isSelected: (path: string) => boolean;
+  onToggleSelect: (path: string) => void;
+  onToggleAll: () => void;
+  allSelected: boolean;
+  someSelected: boolean;
 };
 
 function formatSize(bytes: number | null): string {
@@ -35,6 +40,11 @@ export function FileTable({
   onRename,
   onDelete,
   onDownload,
+  isSelected,
+  onToggleSelect,
+  onToggleAll,
+  allSelected,
+  someSelected,
 }: Props) {
   const isEmpty = folders.length === 0 && files.length === 0;
 
@@ -53,6 +63,17 @@ export function FileTable({
       <table className="file-table">
         <thead>
           <tr>
+            <th style={{ width: 36 }}>
+              <input
+                type="checkbox"
+                checked={allSelected}
+                ref={(el) => {
+                  if (el) el.indeterminate = someSelected && !allSelected;
+                }}
+                onChange={onToggleAll}
+                aria-label="전체 선택"
+              />
+            </th>
             <th>이름</th>
             <th>크기</th>
             <th>수정일</th>
@@ -60,63 +81,89 @@ export function FileTable({
           </tr>
         </thead>
         <tbody>
-          {folders.map((entry) => (
-            <tr
-              key={entry.name}
-              className="folder-row"
-              onClick={() => onFolderClick(entry.name)}
-              title={entry.name}
-            >
-              <td>📁 {entry.name}</td>
-              <td>—</td>
-              <td>{formatDate(entry.lastModified)}</td>
-              <td>
-                <div className="file-actions" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    className="btn btn-sm"
-                    onClick={() => onRename(entry)}
-                  >
-                    이름 바꾸기
-                  </button>
-                  <button
-                    className="btn btn-sm btn-danger"
-                    onClick={() => onDelete(entry)}
-                  >
-                    삭제
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-          {files.map((entry) => (
-            <tr key={entry.name} title={entry.name}>
-              <td>📄 {entry.name}</td>
-              <td>{formatSize(entry.size)}</td>
-              <td>{formatDate(entry.lastModified)}</td>
-              <td>
-                <div className="file-actions">
-                  <button
-                    className="btn btn-sm"
-                    onClick={() => onDownload(entry)}
-                  >
-                    다운로드
-                  </button>
-                  <button
-                    className="btn btn-sm"
-                    onClick={() => onRename(entry)}
-                  >
-                    이름 바꾸기
-                  </button>
-                  <button
-                    className="btn btn-sm btn-danger"
-                    onClick={() => onDelete(entry)}
-                  >
-                    삭제
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
+          {folders.map((entry) => {
+            const sel = isSelected(entry.name);
+            return (
+              <tr
+                key={entry.name}
+                className={`folder-row${sel ? ' row-selected' : ''}`}
+                onClick={() => onFolderClick(entry.name)}
+                title={entry.name}
+              >
+                <td onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={sel}
+                    onChange={() => onToggleSelect(entry.name)}
+                    aria-label={`${entry.name} 선택`}
+                  />
+                </td>
+                <td>📁 {entry.name}</td>
+                <td>—</td>
+                <td>{formatDate(entry.lastModified)}</td>
+                <td>
+                  <div className="file-actions" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => onRename(entry)}
+                    >
+                      이름 바꾸기
+                    </button>
+                    <button
+                      className="btn btn-sm btn-danger"
+                      onClick={() => onDelete(entry)}
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+          {files.map((entry) => {
+            const sel = isSelected(entry.name);
+            return (
+              <tr
+                key={entry.name}
+                className={sel ? 'row-selected' : undefined}
+                title={entry.name}
+              >
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={sel}
+                    onChange={() => onToggleSelect(entry.name)}
+                    aria-label={`${entry.name} 선택`}
+                  />
+                </td>
+                <td>📄 {entry.name}</td>
+                <td>{formatSize(entry.size)}</td>
+                <td>{formatDate(entry.lastModified)}</td>
+                <td>
+                  <div className="file-actions">
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => onDownload(entry)}
+                    >
+                      다운로드
+                    </button>
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => onRename(entry)}
+                    >
+                      이름 바꾸기
+                    </button>
+                    <button
+                      className="btn btn-sm btn-danger"
+                      onClick={() => onDelete(entry)}
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
