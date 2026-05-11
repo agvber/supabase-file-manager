@@ -44,6 +44,10 @@ export function uploadResumable(params: UploadParams): {
       chunkSize: 6 * 1024 * 1024,
       retryDelays: [0, 3000, 5000, 10000, 20000],
       removeFingerprintOnSuccess: true,
+      // 이전 세션의 URL로 resume을 시도하면 stale한 내부 URL을 잡을 수 있어
+      // 매번 고유 fingerprint를 만들어 사실상 resume을 비활성화
+      fingerprint: () =>
+        Promise.resolve(`no-resume-${Date.now()}-${Math.random().toString(36).slice(2)}`),
       metadata: {
         bucketName: bucket,
         objectName: objectPath,

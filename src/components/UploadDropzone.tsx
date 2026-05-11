@@ -21,6 +21,26 @@ type FileStatus = {
 
 const CONCURRENCY = 4;
 
+function friendlyUploadError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/failed to resume upload/i.test(msg)) {
+    return '이전 업로드 캐시 충돌. 페이지를 새로고침하고 다시 시도해주세요.';
+  }
+  const codeMatch = msg.match(/response code:\s*(\d+)/i);
+  if (codeMatch) {
+    const code = codeMatch[1];
+    if (code === '413') return '파일이 너무 큽니다. 버킷 file_size_limit을 확인하세요.';
+    if (code === '401') return 'Auth key가 유효하지 않습니다. 설정을 다시 확인하세요.';
+    if (code === '403') return 'RLS 정책으로 차단됨. service_role 또는 권한 있는 Auth key가 필요합니다.';
+    if (code === '404') return '버킷 또는 경로를 찾을 수 없습니다.';
+    return `서버 응답 오류 (HTTP ${code}).`;
+  }
+  if (/network|fetch|cors/i.test(msg)) {
+    return '네트워크 오류. Supabase URL과 CORS 설정을 확인하세요.';
+  }
+  return msg.length > 200 ? msg.slice(0, 200) + '…' : msg;
+}
+
 export function UploadDropzone({
   bucket,
   path,
@@ -85,7 +105,7 @@ export function UploadDropzone({
             .then(() => updateStatus(file.name, { done: true, progress: 100 }))
             .catch((err) =>
               updateStatus(file.name, {
-                error: err instanceof Error ? err.message : String(err),
+                error: friendlyUploadError(err),
               }),
             );
         }),
