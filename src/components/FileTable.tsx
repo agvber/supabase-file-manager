@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { StorageEntry } from '../lib/storage';
 
 type Props = {
@@ -14,6 +15,7 @@ type Props = {
   onToggleAll: () => void;
   allSelected: boolean;
   someSelected: boolean;
+  onDropOnFolder?: (sourceNames: string[], targetFolderName: string) => Promise<void>;
 };
 
 function formatSize(bytes: number | null): string {
@@ -45,7 +47,55 @@ export function FileTable({
   onToggleAll,
   allSelected,
   someSelected,
+  onDropOnFolder,
 }: Props) {
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+
+  function handleDragStart(e: React.DragEvent<HTMLTableRowElement>, entry: StorageEntry) {
+    // Build list of sources: if dragged entry is selected, drag all selected; else just this one
+    const sources: string[] = isSelected(entry.name)
+      ? [...Array.from(
+          // Collect all selected names from both folders and files
+          new Set([
+            ...folders.filter((f) => isSelected(f.name)).map((f) => f.name),
+            ...files.filter((f) => isSelected(f.name)).map((f) => f.name),
+          ])
+        )]
+      : [entry.name];
+    e.dataTransfer.setData('application/x-fm-item', JSON.stringify({ items: sources }));
+    e.dataTransfer.effectAllowed = 'move';
+  }
+
+  function handleFolderDragOver(e: React.DragEvent<HTMLTableRowElement>, folderName: string) {
+    if (e.dataTransfer.types.includes('application/x-fm-item')) {
+      e.preventDefault();
+      setDropTarget(folderName);
+    }
+  }
+
+  function handleFolderDragLeave(e: React.DragEvent<HTMLTableRowElement>) {
+    // Only clear if leaving to outside the row
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setDropTarget(null);
+    }
+  }
+
+  async function handleFolderDrop(e: React.DragEvent<HTMLTableRowElement>, folderEntry: StorageEntry) {
+    e.preventDefault();
+    setDropTarget(null);
+    const raw = e.dataTransfer.getData('application/x-fm-item');
+    if (!raw || !onDropOnFolder) return;
+    try {
+      const { items }: { items: string[] } = JSON.parse(raw) as { items: string[] };
+      // Filter out self-move (can't drop folder onto itself)
+      const filtered = items.filter((name) => name !== folderEntry.name);
+      if (filtered.length === 0) return;
+      await onDropOnFolder(filtered, folderEntry.name);
+    } catch {
+      // ignore parse errors
+    }
+  }
+
   const isEmpty = folders.length === 0 && files.length === 0;
 
   if (isEmpty) {
@@ -83,12 +133,18 @@ export function FileTable({
         <tbody>
           {folders.map((entry) => {
             const sel = isSelected(entry.name);
+            const isDropTarget = dropTarget === entry.name;
             return (
               <tr
                 key={entry.name}
-                className={`folder-row${sel ? ' row-selected' : ''}`}
+                className={`folder-row${sel ? ' row-selected' : ''}${isDropTarget ? ' drop-target' : ''}`}
                 onClick={() => onFolderClick(entry.name)}
                 title={entry.name}
+                draggable
+                onDragStart={(e) => handleDragStart(e, entry)}
+                onDragOver={(e) => handleFolderDragOver(e, entry.name)}
+                onDragLeave={handleFolderDragLeave}
+                onDrop={(e) => void handleFolderDrop(e, entry)}
               >
                 <td onClick={(e) => e.stopPropagation()}>
                   <input
@@ -127,6 +183,8 @@ export function FileTable({
                 key={entry.name}
                 className={sel ? 'row-selected' : undefined}
                 title={entry.name}
+                draggable
+                onDragStart={(e) => handleDragStart(e, entry)}
               >
                 <td>
                   <input

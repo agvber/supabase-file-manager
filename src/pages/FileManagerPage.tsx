@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { FileTable } from '../components/FileTable';
@@ -7,6 +7,7 @@ import { NewFolderDialog } from '../components/NewFolderDialog';
 import { RenameDialog } from '../components/RenameDialog';
 import { BulkActionBar } from '../components/BulkActionBar';
 import { MoveDialog } from '../components/MoveDialog';
+import { DetailPanel } from '../components/DetailPanel';
 import { useFiles } from '../hooks/useFiles';
 import { useSelection } from '../hooks/useSelection';
 import { getSupabase } from '../lib/supabaseClient';
@@ -39,6 +40,50 @@ export function FileManagerPage() {
   const [moveMode, setMoveMode] = useState<'move' | 'copy'>('move');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+
+  // Area-wide OS-file drag state
+  const [areaDragOver, setAreaDragOver] = useState(false);
+  const areaDragCounter = useRef(0);
+
+  function handleAreaDragEnter(e: React.DragEvent<HTMLDivElement>) {
+    if (e.dataTransfer.types.includes('Files')) {
+      areaDragCounter.current += 1;
+      setAreaDragOver(true);
+    }
+  }
+
+  function handleAreaDragOver(e: React.DragEvent<HTMLDivElement>) {
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+    }
+  }
+
+  function handleAreaDragLeave(e: React.DragEvent<HTMLDivElement>) {
+    if (e.dataTransfer.types.includes('Files')) {
+      areaDragCounter.current -= 1;
+      if (areaDragCounter.current <= 0) {
+        areaDragCounter.current = 0;
+        setAreaDragOver(false);
+      }
+    }
+  }
+
+  function handleAreaDrop(e: React.DragEvent<HTMLDivElement>) {
+    // Only handle OS file drops (not row drags)
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    setAreaDragOver(false);
+    areaDragCounter.current = 0;
+    // Delegate to dropzone's upload handler via custom event — handled below
+    if (e.dataTransfer.files.length > 0) {
+      areaDropFilesRef.current = e.dataTransfer.files;
+      setAreaDropTick((t) => t + 1);
+    }
+  }
+
+  // Signal to UploadDropzone to handle files dropped anywhere in the area
+  const areaDropFilesRef = useRef<FileList | null>(null);
+  const [areaDropTick, setAreaDropTick] = useState(0);
 
   // Clear selection on navigation
   useEffect(() => {
@@ -173,6 +218,43 @@ export function FileManagerPage() {
     }
   }
 
+  async function handleDropOnFolder(sourceNames: string[], targetFolderName: string) {
+    const client = getSupabase();
+    if (!client) return;
+
+    const entryMap = new Map<string, boolean>();
+    for (const e of folders) entryMap.set(e.name, true);
+    for (const e of files) entryMap.set(e.name, false);
+
+    const opItems = sourceNames
+      .filter((name) => entryMap.has(name))
+      .map((name) => {
+        const isFolder = entryMap.get(name) ?? false;
+        const from = path ? joinPath(path, name) : name;
+        const to = joinPath(path ? joinPath(path, targetFolderName) : targetFolderName, name);
+        return { from, to, isFolder };
+      })
+      // Filter self-moves and descendant moves
+      .filter((op) => op.from !== op.to && !op.to.startsWith(op.from + '/'));
+
+    if (opItems.length === 0) return;
+
+    setBusy(true);
+    setProgress(null);
+    try {
+      await moveMany(client, bucket ?? '', opItems, (done, total) =>
+        setProgress({ done, total }),
+      );
+      sel.clear();
+      refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+      setProgress(null);
+    }
+  }
+
   // Selection toggle helpers for FileTable
   const allEntryNames = [...folders, ...files].map((e) => e.name);
   const allSelected =
@@ -209,40 +291,71 @@ export function FileManagerPage() {
       <main className="dashboard-main">
         <Breadcrumb bucket={bucket ?? ''} path={path} />
 
-        <div className="fm-toolbar">
-          <button className="btn btn-sm" onClick={() => setNewFolderOpen(true)}>
-            📁 폴더 만들기
-          </button>
-          <button className="btn btn-sm" onClick={refresh}>
-            새로고침
-          </button>
-        </div>
+        <div className="fm-layout">
+          <div
+            className="fm-main"
+            onDragEnter={handleAreaDragEnter}
+            onDragOver={handleAreaDragOver}
+            onDragLeave={handleAreaDragLeave}
+            onDrop={handleAreaDrop}
+          >
+            <div className="fm-toolbar">
+              <button className="btn btn-sm" onClick={() => setNewFolderOpen(true)}>
+                📁 폴더 만들기
+              </button>
+              <button className="btn btn-sm" onClick={refresh}>
+                새로고침
+              </button>
+            </div>
 
-        <UploadDropzone bucket={bucket ?? ''} path={path} onUploaded={refresh} />
+            <UploadDropzone
+              bucket={bucket ?? ''}
+              path={path}
+              onUploaded={refresh}
+              externalFiles={areaDropTick > 0 ? areaDropFilesRef.current : null}
+              onExternalFilesConsumed={() => {
+                areaDropFilesRef.current = null;
+                setAreaDropTick(0);
+              }}
+            />
 
-        {error && <div className="form-error">{error}</div>}
+            {error && <div className="form-error">{error}</div>}
 
-        {loading ? (
-          <div className="file-list-status">불러오는 중…</div>
-        ) : (
-          <FileTable
+            {loading ? (
+              <div className="file-list-status">불러오는 중…</div>
+            ) : (
+              <FileTable
+                bucket={bucket ?? ''}
+                path={path}
+                folders={folders}
+                files={files}
+                onFolderClick={(name) =>
+                  navigate(`/b/${bucket}/${joinPath(path, name)}`)
+                }
+                onRename={(entry) => setRenameTarget(entry)}
+                onDelete={handleDelete}
+                onDownload={handleDownload}
+                isSelected={sel.isSelected}
+                onToggleSelect={sel.toggle}
+                onToggleAll={handleToggleAll}
+                allSelected={allSelected}
+                someSelected={someSelected}
+                onDropOnFolder={handleDropOnFolder}
+              />
+            )}
+
+            {areaDragOver && (
+              <div className="fm-overlay">여기에 드롭하여 업로드</div>
+            )}
+          </div>
+
+          <DetailPanel
             bucket={bucket ?? ''}
             path={path}
-            folders={folders}
-            files={files}
-            onFolderClick={(name) =>
-              navigate(`/b/${bucket}/${joinPath(path, name)}`)
-            }
-            onRename={(entry) => setRenameTarget(entry)}
-            onDelete={handleDelete}
-            onDownload={handleDownload}
-            isSelected={sel.isSelected}
-            onToggleSelect={sel.toggle}
-            onToggleAll={handleToggleAll}
-            allSelected={allSelected}
-            someSelected={someSelected}
+            entries={[...folders, ...files]}
+            selected={sel.selected}
           />
-        )}
+        </div>
       </main>
 
       <BulkActionBar

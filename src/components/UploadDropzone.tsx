@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { uploadResumable } from '../lib/upload';
 import { getConfig } from '../lib/config';
 import { joinPath } from '../lib/storage';
@@ -7,6 +7,8 @@ type Props = {
   bucket: string;
   path: string;
   onUploaded: () => void;
+  externalFiles?: FileList | null;
+  onExternalFilesConsumed?: () => void;
 };
 
 type FileStatus = {
@@ -18,11 +20,20 @@ type FileStatus = {
 
 const CONCURRENCY = 4;
 
-export function UploadDropzone({ bucket, path, onUploaded }: Props) {
+export function UploadDropzone({ bucket, path, onUploaded, externalFiles, onExternalFilesConsumed }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [statuses, setStatuses] = useState<FileStatus[]>([]);
   const [uploading, setUploading] = useState(false);
+
+  // Handle files dropped anywhere on the fm-main area
+  useEffect(() => {
+    if (externalFiles && externalFiles.length > 0) {
+      void uploadFiles(externalFiles);
+      onExternalFilesConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalFiles]);
 
   function updateStatus(name: string, patch: Partial<FileStatus>) {
     setStatuses((prev) =>
