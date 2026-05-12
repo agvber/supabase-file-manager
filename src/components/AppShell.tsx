@@ -1,20 +1,39 @@
+import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useParams, Link } from 'react-router-dom';
-import { Database, RotateCw, Settings } from 'lucide-react';
+import { Database, FolderOpen, Moon, RotateCw, Settings, Sun } from 'lucide-react';
 import { useBuckets } from '../hooks/useBuckets';
+import { resolveInitialTheme, setTheme, type Theme } from '../lib/theme';
 
 export function AppShell() {
   const navigate = useNavigate();
   const { bucket: activeBucket } = useParams<{ bucket?: string }>();
   const { buckets, loading, error, refresh } = useBuckets();
+  const [theme, setThemeState] = useState<Theme>(() => resolveInitialTheme());
+
+  useEffect(() => {
+    setTheme(theme);
+  }, [theme]);
 
   return (
     <div className="app-shell">
       {/* Top header */}
       <header className="app-header">
         <div className="app-header-left">
+          <span className="app-header-brand" aria-hidden>
+            <FolderOpen size={14} strokeWidth={2.25} />
+          </span>
           <span className="app-header-title">파일 매니저</span>
         </div>
         <div className="app-header-right">
+          <button
+            type="button"
+            className="btn-icon"
+            onClick={() => setThemeState((t) => (t === 'dark' ? 'light' : 'dark'))}
+            title={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
+            aria-label="테마 전환"
+          >
+            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+          </button>
           <Link to="/settings" className="btn btn-ghost btn-sm" style={{ gap: 5 }}>
             <Settings size={14} />
             설정
