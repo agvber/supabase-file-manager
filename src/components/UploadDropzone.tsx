@@ -70,13 +70,15 @@ export function UploadDropzone({
     );
   }
 
-  // 같은 % 스킵 + 150ms 이내 연속 호출 스킵 (단, 100%는 항상 통과)
+  // 역행/같은 % 스킵 + 200ms 이내 연속 호출 스킵 (단, 100%는 항상 통과)
+  // tus 청크 재시도 시 bytesUploaded가 감소해 진행률이 뒤로 가는 것 방지.
+  // throttle 간격은 CSS transition(0.2s)과 맞춰 애니메이션 중단으로 인한 흔들림 제거.
   function reportProgress(name: string, pct: number) {
     const prevPct = lastPctRef.current.get(name) ?? -1;
-    if (pct === prevPct) return;
+    if (pct <= prevPct) return;
     const now = Date.now();
     const prevAt = lastEmitAtRef.current.get(name) ?? 0;
-    if (pct < 100 && now - prevAt < 150) return;
+    if (pct < 100 && now - prevAt < 200) return;
     lastPctRef.current.set(name, pct);
     lastEmitAtRef.current.set(name, now);
     updateStatus(name, { progress: pct });
