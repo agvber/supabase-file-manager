@@ -1,4 +1,4 @@
-# 태블릿 파일 매니저
+# Supabase 파일 매니저 (supabase-file-manager)
 
 Supabase Storage의 모든 버킷을 한 화면에서 탐색·관리하는 정적 웹.
 
