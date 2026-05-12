@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Upload } from 'lucide-react';
+import { Upload, X } from 'lucide-react';
 import { uploadResumable } from '../lib/upload';
 import { getConfig } from '../lib/config';
 import { joinPath } from '../lib/storage';
@@ -17,6 +17,7 @@ type FileStatus = {
   progress: number;
   done: boolean;
   error: string | null;
+  canceled: boolean;
 };
 
 const CONCURRENCY = 4;
@@ -55,6 +56,9 @@ export function UploadDropzone({
   // 진행률 throttle 상태 (re-render 사이 유지)
   const lastPctRef = useRef<Map<string, number>>(new Map());
   const lastEmitAtRef = useRef<Map<string, number>>(new Map());
+  // 진행 중 업로드의 abort 함수와 취소된 파일명 집합
+  const abortsRef = useRef<Map<string, () => void>>(new Map());
+  const canceledRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (externalFiles && externalFiles.length > 0) {
@@ -84,6 +88,15 @@ export function UploadDropzone({
     updateStatus(name, { progress: pct });
   }
 
+  function cancelUpload(name: string) {
+    const abort = abortsRef.current.get(name);
+    if (!abort) return;
+    canceledRef.current.add(name);
+    abortsRef.current.delete(name);
+    abort();
+    updateStatus(name, { canceled: true });
+  }
+
   async function uploadFiles(fileList: FileList | File[]) {
     const files = Array.from(fileList);
     if (files.length === 0) return;
@@ -96,18 +109,21 @@ export function UploadDropzone({
       progress: 0,
       done: false,
       error: null,
+      canceled: false,
     }));
     setStatuses(initial);
     setUploading(true);
     lastPctRef.current.clear();
     lastEmitAtRef.current.clear();
+    abortsRef.current.clear();
+    canceledRef.current.clear();
 
     for (let i = 0; i < files.length; i += CONCURRENCY) {
       const chunk = files.slice(i, i + CONCURRENCY);
       await Promise.all(
         chunk.map((file) => {
           const objectPath = path ? joinPath(path, file.name) : file.name;
-          const { promise } = uploadResumable({
+          const { promise, abort } = uploadResumable({
             supabaseUrl: config.url,
             accessToken: config.authKey,
             bucket,
@@ -120,13 +136,20 @@ export function UploadDropzone({
               reportProgress(file.name, pct);
             },
           });
+          abortsRef.current.set(file.name, abort);
           return promise
-            .then(() => updateStatus(file.name, { done: true, progress: 100 }))
-            .catch((err) =>
+            .then(() => {
+              abortsRef.current.delete(file.name);
+              if (canceledRef.current.has(file.name)) return;
+              updateStatus(file.name, { done: true, progress: 100 });
+            })
+            .catch((err) => {
+              abortsRef.current.delete(file.name);
+              if (canceledRef.current.has(file.name)) return;
               updateStatus(file.name, {
                 error: friendlyUploadError(err),
-              }),
-            );
+              });
+            });
         }),
       );
     }
@@ -198,7 +221,13 @@ export function UploadDropzone({
             </div>
           )}
           {statuses.map((s) => {
-            const state = s.error ? 'error' : s.done ? 'done' : 'uploading';
+            const state = s.canceled
+              ? 'canceled'
+              : s.error
+                ? 'error'
+                : s.done
+                  ? 'done'
+                  : 'uploading';
             const barPct = s.done ? 100 : s.progress;
             return (
               <div key={s.name} className={`upload-status-item state-${state}`}>
@@ -206,10 +235,23 @@ export function UploadDropzone({
                   <span className="upload-status-name">{s.name}</span>
                   {s.error ? (
                     <span className="upload-status-error">{s.error}</span>
+                  ) : s.canceled ? (
+                    <span className="upload-status-canceled">취소됨</span>
                   ) : s.done ? (
                     <span className="upload-status-done">완료</span>
                   ) : (
-                    <span className="upload-status-pct">{s.progress}%</span>
+                    <>
+                      <span className="upload-status-pct">{s.progress}%</span>
+                      <button
+                        type="button"
+                        className="upload-cancel-btn"
+                        onClick={() => cancelUpload(s.name)}
+                        aria-label={`${s.name} 업로드 취소`}
+                        title="업로드 취소"
+                      >
+                        <X size={14} strokeWidth={2} />
+                      </button>
+                    </>
                   )}
                 </div>
                 <div className="upload-status-bar" aria-hidden>
