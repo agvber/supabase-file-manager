@@ -56,7 +56,7 @@ Supabase Storage의 폴더는 객체 경로의 prefix로 표현되는 가상 개
 
 ## 배포 (GitHub Pages)
 
-- 라이브: `https://<user>.github.io/apk-uploader/`
+- 라이브: `https://<user>.github.io/supabase-file-manager/`
 - `main` 브랜치에 push → GitHub Actions가 자동 빌드 + 배포
 - `dist/index.html`을 `dist/404.html`로 복사해 SPA deep-link 지원
 - CSP/HSTS 헤더가 필요하면 Cloudflare Pages/Vercel/Netlify로 이전 권장
