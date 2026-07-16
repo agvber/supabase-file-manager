@@ -78,6 +78,7 @@ export function UploadDropzone({
   // tus 청크 재시도 시 bytesUploaded가 감소해 진행률이 뒤로 가는 것 방지.
   // throttle 간격은 CSS transition(0.2s)과 맞춰 애니메이션 중단으로 인한 흔들림 제거.
   function reportProgress(name: string, pct: number) {
+    if (canceledRef.current.has(name)) return;
     const prevPct = lastPctRef.current.get(name) ?? -1;
     if (pct <= prevPct) return;
     const now = Date.now();
