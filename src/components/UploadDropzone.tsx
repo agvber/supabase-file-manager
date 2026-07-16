@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Upload, X } from 'lucide-react';
 import { uploadResumable } from '../lib/upload';
 import { getConfig } from '../lib/config';
+import { getAccessToken } from '../lib/supabaseClient';
 import { joinPath } from '../lib/storage';
 
 type Props = {
@@ -30,9 +31,18 @@ function friendlyUploadError(err: unknown): string {
   const codeMatch = msg.match(/response code:\s*(\d+)/i);
   if (codeMatch) {
     const code = codeMatch[1];
+    const passwordMode = getConfig()?.loginType === 'password';
     if (code === '413') return '파일이 너무 큽니다. 버킷 file_size_limit을 확인하세요.';
-    if (code === '401') return 'Auth key가 유효하지 않습니다. 설정을 다시 확인하세요.';
-    if (code === '403') return 'RLS 정책으로 차단됨. service_role 또는 권한 있는 Auth key가 필요합니다.';
+    if (code === '401') {
+      return passwordMode
+        ? '로그인 세션이 만료되었습니다. 설정에서 다시 로그인해주세요.'
+        : 'Auth key가 유효하지 않습니다. 설정을 다시 확인하세요.';
+    }
+    if (code === '403') {
+      return passwordMode
+        ? 'RLS 정책으로 차단됨. 이 계정에 업로드 권한이 있는지 확인하세요.'
+        : 'RLS 정책으로 차단됨. service_role 또는 권한 있는 Auth key가 필요합니다.';
+    }
     if (code === '404') return '버킷 또는 경로를 찾을 수 없습니다.';
     return `서버 응답 오류 (HTTP ${code}).`;
   }
@@ -119,6 +129,20 @@ export function UploadDropzone({
     abortsRef.current.clear();
     canceledRef.current.clear();
 
+    // 토큰은 배치당 1회 조회. password 모드는 세션에서 가져오며 만료 시 getSession이 갱신을
+    // 시도한다. 배치가 JWT 수명(~1h)을 넘기면 이후 파일은 401 → 재로그인 안내로 처리(허용 edge).
+    const accessToken = await getAccessToken();
+    if (accessToken === null) {
+      setStatuses(
+        initial.map((s) => ({
+          ...s,
+          error: '로그인 세션이 만료되었습니다. 설정에서 다시 로그인해주세요.',
+        })),
+      );
+      setUploading(false);
+      return;
+    }
+
     for (let i = 0; i < files.length; i += CONCURRENCY) {
       const chunk = files.slice(i, i + CONCURRENCY);
       await Promise.all(
@@ -126,7 +150,7 @@ export function UploadDropzone({
           const objectPath = path ? joinPath(path, file.name) : file.name;
           const { promise, abort } = uploadResumable({
             supabaseUrl: config.url,
-            accessToken: config.authKey,
+            accessToken,
             bucket,
             objectPath,
             file,

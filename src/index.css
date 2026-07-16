@@ -512,6 +512,42 @@ input, textarea, select {
   color: var(--foreground-default);
 }
 
+/* ===== Segmented Control (로그인 방식) ===== */
+.segmented {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--background-surface-200);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.segmented-option {
+  flex: 1;
+  padding: var(--space-1-5) var(--space-2-5);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--foreground-light);
+  font-size: var(--text-base);
+  font-weight: 500;
+  transition: background-color 0.12s, color 0.12s, border-color 0.12s;
+}
+.segmented-option:hover:not(.segmented-option--active) {
+  color: var(--foreground-default);
+}
+.segmented-option:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-brand);
+}
+
+.segmented-option--active {
+  background: var(--background-surface-100);
+  border-color: var(--border-strong);
+  color: var(--foreground-default);
+  box-shadow: var(--shadow-sm);
+}
+
 /* ===== App Shell ===== */
 .app-shell {
   display: flex;
