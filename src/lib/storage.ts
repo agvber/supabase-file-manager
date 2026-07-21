@@ -80,6 +80,21 @@ export async function createFolder(
   if (error) throw new Error(error.message);
 }
 
+export async function uploadFile(
+  client: SupabaseClient,
+  bucket: string,
+  path: string,
+  file: File,
+): Promise<void> {
+  const { error } = await client.storage.from(bucket).upload(path, file, {
+    upsert: true, // 같은 이름 덮어쓰기 (dropzone 안내 문구와 일치)
+    contentType: file.type || 'application/octet-stream',
+    cacheControl: '3600',
+  });
+  // StorageApiError의 숫자 status를 UI 에러 매핑에 쓰기 위해 원본 에러를 그대로 던진다
+  if (error) throw error;
+}
+
 export async function renameItem(
   client: SupabaseClient,
   bucket: string,

@@ -1,5 +1,11 @@
 import { createClient, SupabaseClient, type AuthError } from '@supabase/supabase-js';
-import { authStorageKey, getConfig, subscribeConfig } from './config';
+import {
+  authStorageKey,
+  getConfig,
+  normalizeConfig,
+  subscribeConfig,
+  type TokenConfig,
+} from './config';
 
 let cachedClient: SupabaseClient | null = null;
 let cachedKey: string | null = null;
@@ -54,9 +60,9 @@ export function resetSupabase(): void {
   cachedKey = null;
 }
 
-// tus 업로드처럼 supabase-js 밖에서 쓸 Bearer 토큰.
-// password 모드는 세션에서 읽으며, 만료된 세션은 getSession()이 갱신을 시도한다.
-export async function getAccessToken(): Promise<string | null> {
+// 현재 유효한 Bearer 토큰. password 모드는 세션에서 읽으며,
+// 만료된 세션은 getSession()이 갱신을 시도한다.
+async function getAccessToken(): Promise<string | null> {
   const config = getConfig();
   if (!config) return null;
   if (config.loginType === 'token') return config.authKey;
@@ -72,6 +78,46 @@ export async function isSessionExpired(): Promise<boolean> {
   const config = getConfig();
   if (config?.loginType !== 'password') return false;
   return (await getAccessToken()) === null;
+}
+
+// 요청별 타임아웃을 거는 fetch 래퍼 (검증/로그인용 일회성 클라이언트 공용)
+function timeoutFetch(ms: number): typeof fetch {
+  return (input, init) =>
+    fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(ms) });
+}
+
+// token 모드 전용 — password 모드는 로그인 성공 자체가 URL/anon key/자격증명 검증이고,
+// 사용자 JWT의 버킷 목록은 RLS에 따라 빈 배열이 정상이라 smoke test가 의미 없다.
+export async function validateSupabaseConnection(cfg: TokenConfig): Promise<TokenConfig> {
+  const normalized = normalizeConfig(cfg);
+  // token 모드 실클라이언트(getSupabase)와 같은 구성에 8초 타임아웃만 더한 일회용 클라이언트
+  const temp = createClient(normalized.url, normalized.apiKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      headers: { Authorization: `Bearer ${normalized.authKey}` },
+      fetch: timeoutFetch(8000),
+    },
+  });
+  const { data, error } = await temp.storage.listBuckets();
+  if (error) {
+    // HTTP 응답 오류(StorageApiError)만 숫자 status를 가진다.
+    // 없으면 네트워크/타임아웃/비JSON 응답(StorageUnknownError).
+    const status = (error as { status?: unknown }).status;
+    if (typeof status !== 'number') {
+      throw new Error(
+        `Supabase 서버에 연결할 수 없습니다. URL과 네트워크/CORS 설정을 확인하세요. (${error.message})`,
+      );
+    }
+    if (status === 401) throw new Error('API key 또는 Auth key가 잘못되었습니다.');
+    if (status === 403) throw new Error('권한이 없습니다. service_role key를 사용해보세요.');
+    if (status >= 500) throw new Error(`Supabase 서버 오류 (HTTP ${status}).`);
+    throw new Error(`Supabase 응답 오류 (HTTP ${status}). URL을 확인하세요.`);
+  }
+  if (!Array.isArray(data)) throw new Error('Supabase 응답이 예상과 다릅니다. URL을 확인하세요.');
+  return normalized;
 }
 
 // 설정 페이지 로그인 검증용. 실제 클라이언트와 같은 storageKey를 쓰는 임시 클라이언트로
@@ -92,8 +138,7 @@ export async function loginWithPassword(params: {
       storageKey: authStorageKey(params.url),
     },
     global: {
-      fetch: (input, init) =>
-        fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(10000) }),
+      fetch: timeoutFetch(10000),
     },
   });
   const { error } = await temp.auth.signInWithPassword({

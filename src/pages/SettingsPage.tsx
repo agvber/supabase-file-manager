@@ -7,10 +7,14 @@ import {
   getConfig,
   normalizeConfig,
   saveConfig,
-  validateSupabaseConnection,
   type LoginType,
 } from '../lib/config';
-import { getSupabase, isSessionExpired, loginWithPassword } from '../lib/supabaseClient';
+import {
+  getSupabase,
+  isSessionExpired,
+  loginWithPassword,
+  validateSupabaseConnection,
+} from '../lib/supabaseClient';
 
 type SessionState = 'unknown' | 'active' | 'expired';
 
