@@ -694,6 +694,75 @@ input, textarea, select {
   padding: var(--space-1) var(--space-3);
 }
 
+.sidebar-item-remove {
+  border: none;
+  background: transparent;
+  color: var(--foreground-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 0;
+  opacity: 0;
+  transition: opacity 0.1s, background-color 0.1s, color 0.1s;
+}
+.sidebar-item:hover .sidebar-item-remove,
+.sidebar-item-remove:focus-visible {
+  opacity: 1;
+}
+.sidebar-item-remove:hover {
+  background: var(--background-surface-300);
+  color: var(--foreground-default);
+}
+
+.sidebar-add-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  margin-top: var(--space-1);
+  padding: var(--space-1-5) var(--space-2);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--foreground-muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background-color 0.1s, color 0.1s, border-color 0.1s;
+}
+.sidebar-add-btn:hover {
+  background: var(--background-surface-200);
+  color: var(--foreground-default);
+  border-color: var(--border-strong);
+}
+
+.sidebar-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--background-surface-100);
+}
+
+.sidebar-add-actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.sidebar-hint {
+  font-size: var(--text-xs);
+  color: var(--foreground-muted);
+  padding: var(--space-2) var(--space-3) 0;
+  line-height: 1.5;
+}
+
 /* Main content slot */
 .app-main {
   flex: 1;
