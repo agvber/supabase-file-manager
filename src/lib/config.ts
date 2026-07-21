@@ -96,35 +96,6 @@ export function normalizeConfig(cfg: SupabaseConfig): SupabaseConfig {
   return { loginType: 'token', ...base, authKey };
 }
 
-// token 모드 전용 — password 모드는 로그인 성공 자체가 URL/anon key/자격증명 검증이고,
-// 사용자 JWT의 버킷 목록은 RLS에 따라 빈 배열이 정상이라 smoke test가 의미 없다.
-export async function validateSupabaseConnection(cfg: TokenConfig): Promise<TokenConfig> {
-  const normalized = normalizeConfig(cfg);
-  const endpoint = `${normalized.url}/storage/v1/bucket`;
-  let res: Response;
-  try {
-    res = await fetch(endpoint, {
-      method: 'GET',
-      headers: {
-        apikey: normalized.apiKey,
-        Authorization: `Bearer ${normalized.authKey}`,
-      },
-      signal: AbortSignal.timeout(8000),
-    });
-  } catch (err: unknown) {
-    const reason = err instanceof Error ? err.message : String(err);
-    throw new Error(`Supabase 서버에 연결할 수 없습니다. URL과 네트워크/CORS 설정을 확인하세요. (${reason})`);
-  }
-  if (res.status === 401) throw new Error('API key 또는 Auth key가 잘못되었습니다.');
-  if (res.status === 403) throw new Error('권한이 없습니다. service_role key를 사용해보세요.');
-  if (res.status >= 500) throw new Error(`Supabase 서버 오류 (HTTP ${res.status}).`);
-  if (!res.ok) throw new Error(`Supabase 응답 오류 (HTTP ${res.status}). URL을 확인하세요.`);
-  let body: unknown = null;
-  try { body = await res.json(); } catch { /* ignore */ }
-  if (!Array.isArray(body)) throw new Error('Supabase 응답이 예상과 다릅니다. URL을 확인하세요.');
-  return normalized;
-}
-
 export function saveConfig(cfg: SupabaseConfig): void {
   const normalized = normalizeConfig(cfg);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
