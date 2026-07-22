@@ -2,6 +2,7 @@ import * as tus from 'tus-js-client';
 
 export type UploadParams = {
   supabaseUrl: string;
+  apiKey: string; // anon key — supabase-js가 모든 요청에 붙이는 apikey 헤더와 동일하게 전달
   accessToken: string;
   bucket: string;
   objectPath: string;
@@ -10,6 +11,22 @@ export type UploadParams = {
   upsert?: boolean;
   onProgress?: (loaded: number, total: number) => void;
 };
+
+// Supabase 클라우드(<ref>.supabase.co)의 resumable 업로드는 공식 문서가 안내하는
+// 전용 스토리지 도메인(<ref>.storage.supabase.co)으로 보낸다. 메인 도메인의 tus 경로는
+// API 게이트웨이를 거치며 브라우저에서 생성 POST만 반복되고 PATCH로 진행되지 않는
+// 실패 사례가 있다. self-hosted URL은 그대로 둔다.
+function tusEndpointBase(supabaseUrl: string): string {
+  const cleaned = supabaseUrl.replace(/\/$/, '');
+  try {
+    const host = new URL(cleaned).hostname;
+    const m = host.match(/^([a-z0-9-]+)\.supabase\.co$/i);
+    if (m) return `https://${m[1]}.storage.supabase.co`;
+  } catch {
+    /* 비정형 URL은 아래 fallback */
+  }
+  return cleaned;
+}
 
 // Supabase 자체 호스팅 storage 서비스가 X-Forwarded-Proto/Host를 못 받으면
 // Location 헤더에 내부 URL(http://host:8000/upload/resumable/...)을 돌려준다.
@@ -51,6 +68,7 @@ export function uploadResumable(params: UploadParams): {
 } {
   const {
     supabaseUrl,
+    apiKey,
     accessToken,
     bucket,
     objectPath,
@@ -61,11 +79,14 @@ export function uploadResumable(params: UploadParams): {
   } = params;
 
   const cleanedUrl = supabaseUrl.replace(/\/$/, '');
-  const endpoint = cleanedUrl + '/storage/v1/upload/resumable';
+  const endpoint = tusEndpointBase(supabaseUrl) + '/storage/v1/upload/resumable';
+  // self-hosted에서 Location이 내부 URL로 오는 경우 보정 — 클라우드 전용 도메인의
+  // Location은 호스트가 달라 rewrite 대상에서 자연히 제외된다.
   ensureLocationRewrite(cleanedUrl);
 
   const headers: Record<string, string> = {
     authorization: `Bearer ${accessToken}`,
+    apikey: apiKey,
   };
   if (upsert) {
     headers['x-upsert'] = 'true';
