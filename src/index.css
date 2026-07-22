@@ -1115,17 +1115,13 @@ input[type='checkbox'] {
   min-width: 0;
 }
 
-.upload-status-uploading {
+.upload-status-pct {
   color: var(--brand-link);
   font-weight: 600;
-  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.upload-status-queued {
-  color: var(--foreground-muted);
-  font-size: var(--text-sm);
-  white-space: nowrap;
+  min-width: 38px;
+  text-align: right;
 }
 
 .upload-status-done {
@@ -1166,6 +1162,35 @@ input[type='checkbox'] {
 .upload-cancel-btn:hover {
   background: var(--background-surface-300);
   color: var(--foreground-default);
+}
+
+.upload-status-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--border-muted);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.upload-status-bar-fill {
+  height: 100%;
+  background: var(--brand-500);
+  border-radius: var(--radius-full);
+  transition: width 0.2s ease-out;
+  width: 0;
+}
+
+.upload-status-item.state-done .upload-status-bar-fill {
+  background: var(--success-500);
+}
+
+.upload-status-item.state-error .upload-status-bar-fill {
+  background: var(--destructive-500);
+}
+
+.upload-status-item.state-canceled .upload-status-bar-fill {
+  background: var(--foreground-muted);
+  opacity: 0.5;
 }
 
 /* ===== Modal ===== */

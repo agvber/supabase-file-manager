@@ -60,9 +60,9 @@ export function resetSupabase(): void {
   cachedKey = null;
 }
 
-// 현재 유효한 Bearer 토큰. password 모드는 세션에서 읽으며,
-// 만료된 세션은 getSession()이 갱신을 시도한다.
-async function getAccessToken(): Promise<string | null> {
+// tus 업로드처럼 supabase-js 밖에서 쓸 Bearer 토큰.
+// password 모드는 세션에서 읽으며, 만료된 세션은 getSession()이 갱신을 시도한다.
+export async function getAccessToken(): Promise<string | null> {
   const config = getConfig();
   if (!config) return null;
   if (config.loginType === 'token') return config.authKey;
