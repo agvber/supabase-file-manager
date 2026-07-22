@@ -150,6 +150,7 @@ export function UploadDropzone({
           const objectPath = path ? joinPath(path, file.name) : file.name;
           const { promise, abort } = uploadResumable({
             supabaseUrl: config.url,
+            apiKey: config.apiKey,
             accessToken,
             bucket,
             objectPath,
